@@ -5,6 +5,7 @@ from typing import Iterable, List
 import torch
 import torch.nn as nn
 import numpy as np
+import pandas as pd
 from timeit import default_timer as timer
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
@@ -64,10 +65,10 @@ torch.manual_seed(0)
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 SRC_VOCAB_SIZE = len(vocab_transform[SRC_LANGUAGE])
 TGT_VOCAB_SIZE = len(vocab_transform[TGT_LANGUAGE])
-EMB_SIZE = 512
+EMB_SIZE = 128
 NHEAD = 8
-FFN_HID_DIM = 512
-BATCH_SIZE = 128
+FFN_HID_DIM = 128
+BATCH_SIZE = 32
 NUM_ENCODER_LAYERS = 3
 NUM_DECODER_LAYERS = 3
 
@@ -160,7 +161,6 @@ def evaluate(model):
 """
 Run train & eval
 """
-# print(transformer)
 temp_loss = 999
 NUM_EPOCHS = 18
 
@@ -171,32 +171,66 @@ NUM_EPOCHS = 18
 #     val_loss = evaluate(transformer)
 #     if(val_loss < temp_loss):
 #         temp_loss = val_loss
-#         torch.save(transformer,"modelpara.pt")
+#         torch.save(transformer,"../modelpara.pt")
 #     print((f"Epoch: {epoch}, Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}, "f"Epoch time = {(end_time - start_time):.3f}s"))
 
 
 """
-Load module
+Load module & write into .csv file
 """
-input_string = "Eine Gruppe von Menschen steht vor einem Iglu ."
+WRITE_INPUT = True
+input_string = "Zwei junge weiße Männer sind im, Freien in der Nähe vieler Büsche."
 pre_transformer = torch.load('../modelpara.pt')
-f = open("Model_Structure.txt", 'w')
 
-for p in pre_transformer.state_dict():
-    f.write("{}\n".format(p))
+### write structure into .txt
+# f = open("Model_Structure.txt", 'w')
+# for p in transformer.state_dict():
+#     f.write("{}\t{}\n".format(p,transformer.state_dict()[p].shape))
+# f.close()
 
-f.close()
+### write weight into .csv
+### transformer.encoder.layers.0.self_attn.in_proj_weight => [0]
+### name, weight => [1] 
+### row => [0:384]
+# weight_matrix = list(pre_transformer.named_parameters())[0][1].detach().numpy()
+# pd.DataFrame(weight_matrix).to_csv("../data/weight.csv", index=False, header=False)
 
-# print(pre_transformer)
-# for i in range(0,9):
-#     print(list(pre_transformer.named_parameters())[i])
+### split weight into Q,K,V.csv, notice to delete "header=False" in main.py/weight.csv to execute below function
+# df = pd.read_csv("../data/weight.csv")
+# step = 128
+# for start in range(0,len(df),step):
+#     stop = start + step
+#     print("The start is : ", start, " with stop ", stop)
+#     if(start == 0):
+#         filename = "../data/Q_weight.csv"
+#     elif(start == 128):
+#         filename = "../data/K_weight.csv"
+#     else:
+#         filename = "../data/V_weight.csv"
+#     df[start:stop].to_csv(filename, index=False, header=False)
+
+### split input into In1,In2,In3,In4.csv, notice to delete "header=False" in seq2seq.py/encode/input.csv to execute below function
+# df = pd.read_csv("../data/input.csv")
+# step = 4
+# for start in range(0,len(df),step):
+#     stop = start + step
+#     print("The start is : ", start, " with stop ", stop)
+#     if(start == 0):
+#         filename = "../data/In1.csv"
+#     elif(start == 4):
+#         filename = "../data/In2.csv"
+#     elif(start == 8):
+#         filename = "../data/In3.csv"
+#     else:
+#         filename = "../data/In4.csv"
+    
+#     df[start:stop].to_csv(filename, index=False, header=False)
 
 """
 Translate
 """
-
-
 print("The input string is : ", input_string)
+# Two young, White males are outside near many bushes.
 print("The output string is : ", translate(pre_transformer, input_string , text_transform = text_transform,
                 vocab_transform=vocab_transform, device=DEVICE, src_lan=SRC_LANGUAGE,
-                tgt_lan=TGT_LANGUAGE ,eos_idx=EOS_IDX, bos_idx=BOS_IDX))
+                tgt_lan=TGT_LANGUAGE ,eos_idx=EOS_IDX, bos_idx=BOS_IDX,write_input=WRITE_INPUT))

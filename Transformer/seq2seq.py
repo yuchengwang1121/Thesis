@@ -1,8 +1,10 @@
 from torch import Tensor
 import torch
 import torch.nn as nn
+import numpy as np
 from torch.nn import Transformer
 import math
+import pandas as pd
 
 # helper Module that adds positional encoding to the token embedding to introduce a notion of word order.
 class PositionalEncoding(nn.Module):
@@ -72,7 +74,11 @@ class Seq2SeqTransformer(nn.Module):
                                 src_padding_mask, tgt_padding_mask, memory_key_padding_mask)
         return self.generator(outs)
 
-    def encode(self, src: Tensor, src_mask: Tensor):
+    def encode(self, src: Tensor, src_mask: Tensor, write_input): 
+        input_matrix = np.squeeze(self.src_tok_emb(src).detach().numpy())
+        if(write_input):
+            ### Modify header=False here
+            pd.DataFrame(input_matrix).to_csv("../data/input.csv", index=False, header=False)
         return self.transformer.encoder(self.positional_encoding(
                             self.src_tok_emb(src)), src_mask)
 
