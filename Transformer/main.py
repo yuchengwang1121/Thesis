@@ -178,15 +178,23 @@ NUM_EPOCHS = 18
 """
 Load module
 """
-pre_transformer = torch.load('modelpara.pt')
-print(pre_transformer)
+input_string = "Eine Gruppe von Menschen steht vor einem Iglu ."
+pre_transformer = torch.load('../modelpara.pt')
+f = open("Model_Structure.txt", 'w')
+
+for p in pre_transformer.state_dict():
+    f.write("{}\n".format(p))
+
+f.close()
+
+# print(pre_transformer)
 # for i in range(0,9):
 #     print(list(pre_transformer.named_parameters())[i])
 
 """
 Translate
 """
-input_string = "Eine Gruppe von Menschen steht vor einem Iglu ."
+
 
 print("The input string is : ", input_string)
 print("The output string is : ", translate(pre_transformer, input_string , text_transform = text_transform,
