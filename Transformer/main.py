@@ -180,8 +180,8 @@ Load module
 """
 pre_transformer = torch.load('modelpara.pt')
 print(pre_transformer)
-for i in range(0,9):
-    print(list(pre_transformer.named_parameters())[i])
+# for i in range(0,9):
+#     print(list(pre_transformer.named_parameters())[i])
 
 """
 Translate
