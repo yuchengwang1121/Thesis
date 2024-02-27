@@ -193,26 +193,26 @@ pre_transformer = torch.load('../modelpara.pt')
 ### name, weight => [1] 
 ### row => [0:384]
 # weight_matrix = list(pre_transformer.named_parameters())[0][1].detach().numpy()
-# pd.DataFrame(weight_matrix).to_csv("../data/weight.csv", index=False, header=False)
+# np.savetxt("../data/weight.csv", weight_matrix, delimiter=",",fmt='%10.5f')
 
 ### split weight into Q,K,V.csv, notice to delete "header=False" in main.py/weight.csv to execute below function
-# df = pd.read_csv("../data/weight.csv")
+# f = pd.read_csv("../data/weight.csv",header=None).values
 # step = 128
-# for start in range(0,len(df),step):
+# for start in range(0,len(f),step):
 #     stop = start + step
 #     print("The start is : ", start, " with stop ", stop)
 #     if(start == 0):
 #         filename = "../data/Q_weight.csv"
-#     elif(start == 128):
+#     elif(start == 127):
 #         filename = "../data/K_weight.csv"
 #     else:
 #         filename = "../data/V_weight.csv"
-#     df[start:stop].to_csv(filename, index=False, header=False)
+#     np.savetxt(filename, f[start:stop] , delimiter=",",fmt='%10.5f')
 
 ### split input into In1,In2,In3,In4.csv, notice to delete "header=False" in seq2seq.py/encode/input.csv to execute below function
-# df = pd.read_csv("../data/input.csv")
+# f = pd.read_csv("../data/input.csv",header=None).values
 # step = 4
-# for start in range(0,len(df),step):
+# for start in range(0,len(f),step):
 #     stop = start + step
 #     print("The start is : ", start, " with stop ", stop)
 #     if(start == 0):
@@ -223,9 +223,20 @@ pre_transformer = torch.load('../modelpara.pt')
 #         filename = "../data/In3.csv"
 #     else:
 #         filename = "../data/In4.csv"
-    
-#     df[start:stop].to_csv(filename, index=False, header=False)
+#     np.savetxt(filename, f[start:stop] , delimiter=",",fmt='%10.5f')
 
+### Tanspose the segment
+# f = pd.read_csv("../MyNeuro/data/Input.csv",header=None).values.transpose()
+# print(f.shape)
+# filename = "../MyNeuro/data/TransInput.csv"
+# np.savetxt(filename, f , delimiter=",",fmt='%10.5f')
+# f = pd.read_csv("..../MyNeuro/data/SegIn.csv",header=None).values.transpose()
+# print(f.shape)
+# filename = "../MyNeuro/data/TransSegIn.csv"
+# np.savetxt(filename, f , delimiter=",",fmt='%10.5f')
+soft = np.eye(16)
+filename = "../MyNeuro/data/ReSoft.csv"
+np.savetxt(filename, soft , delimiter=",",fmt='%10.5f')
 """
 Translate
 """

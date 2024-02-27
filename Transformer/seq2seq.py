@@ -78,7 +78,7 @@ class Seq2SeqTransformer(nn.Module):
         input_matrix = np.squeeze(self.src_tok_emb(src).detach().numpy())
         if(write_input):
             ### Modify header=False here
-            pd.DataFrame(input_matrix).to_csv("../data/input.csv", index=False, header=False)
+            np.savetxt("../data/input.csv", input_matrix, delimiter=",",fmt='%10.5f')
         return self.transformer.encoder(self.positional_encoding(
                             self.src_tok_emb(src)), src_mask)
 

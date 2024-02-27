@@ -9,36 +9,43 @@
 #include <sstream>
 #include <chrono>
 #include <algorithm>
+#include "../headerfile/function.h"
 #include "../headerfile/constant.h"
 #include "../headerfile/formula.h"
 #include "../headerfile/Param.h"
 #include "../headerfile/SubArray.h"
-#include "../headerfile/Buffer.h"
-#include "../headerfile/HTree.h"
 #include "../headerfile/AdderTree.h"
 #include "../headerfile/Definition.h"
 #include "../headerfile/Bus.h"
 #include "../headerfile/DFF.h"
 
 using namespace std;
+SubArray *subArray;
 AdderTree *adderTreeCM;
 Bus *busInputCM;
 Bus *busOutputCM;
+Bus *busToReg1;
+Bus *busToMT1;
+Bus *busToReg2;
+Bus *busToMT2;
+Bus *busToSoft;
+Bus *busSoftToInput;
+Bus *busRingBroadcast;
 DFF *bufferInputCM;
 DFF *bufferOutputCM;
-
-vector<vector<double>> getNetStructure(const string &inputfile);
+DFF *bufferSoft;
+DFF *bufferReg1;
+DFF *bufferReg2;
+Mux *mux;
 
 int main(int argc, char *argv[])
 {
-
-    auto start = chrono::high_resolution_clock::now();
-
     gen.seed(0);
 
     vector<vector<double>> netStructure;
+	// cout << "get net "<<argv[2] << endl;
     netStructure = getNetStructure(argv[2]);                                        // get file from trace.command.sh
-
+	// cout << "get bit "<<argv[3] << endl;
     // define weight/input/memory precision from wrapper
     param->synapseBit = atoi(argv[3]);  // precision of synapse weight
     param->numBitInput = atoi(argv[4]); // precision of input neural activation
@@ -81,12 +88,10 @@ int main(int argc, char *argv[])
     cout << "------------------------------ FloorPlan --------------------------------" << endl;
     cout << endl;
     cout << "User-defined SubArray Size: " << param->numRowSubArray << "x" << param->numColSubArray << endl;
-    cout << endl;
     
 	/*** circuit level parameters ***/
 	cell.memCellType = Type::RRAM;
 	cell.accessType = CMOS_access;
-	inputParameter.transistorType = conventional;
 	
 	switch(param->deviceroadmap) {
 		case 2:	    inputParameter.deviceRoadmap = LSTP;  break;
@@ -96,12 +101,23 @@ int main(int argc, char *argv[])
 	}
 	
     /*** build object from each class ***/
-	subArray = new SubArray(inputParameter, tech, cell);
-	adderTreeCM = new AdderTree(inputParameter, tech, cell);
-	busInputCM = new Bus(inputParameter, tech, cell);
-	busOutputCM = new Bus(inputParameter, tech, cell);
-	bufferInputCM = new DFF(inputParameter, tech, cell);
-	bufferOutputCM = new DFF(inputParameter, tech, cell);
+	subArray 			= new SubArray(inputParameter, tech, cell);
+	adderTreeCM 		= new AdderTree(inputParameter, tech, cell);
+	busInputCM 			= new Bus(inputParameter, tech, cell);
+	busOutputCM 		= new Bus(inputParameter, tech, cell);
+	busToReg1			= new Bus(inputParameter, tech, cell);
+	busToMT1			= new Bus(inputParameter, tech, cell);
+	busToReg2			= new Bus(inputParameter, tech, cell);
+	busToMT2			= new Bus(inputParameter, tech, cell);
+	busToSoft			= new Bus(inputParameter, tech, cell);
+	busSoftToInput		= new Bus(inputParameter, tech, cell);
+	busRingBroadcast	= new Bus(inputParameter, tech, cell);
+	bufferInputCM 		= new DFF(inputParameter, tech, cell);
+	bufferOutputCM 		= new DFF(inputParameter, tech, cell);
+	bufferReg1 			= new DFF(inputParameter, tech, cell);
+	bufferReg2	 		= new DFF(inputParameter, tech, cell);
+	bufferSoft 			= new DFF(inputParameter, tech, cell);
+	mux 				= new Mux(inputParameter, tech, cell);
 	
     /*** RRAM cell's property ***/ 
 	cell.resistanceOn = param->resistanceOn;	                                // Ron resistance at Vr in the reported measurement data (need to recalculate below if considering the nonlinearity)
@@ -122,11 +138,10 @@ int main(int argc, char *argv[])
 	cell.writePulseWidth = (writePulseWidthLTP + writePulseWidthLTD) / 2;
 	cell.nonlinearIV = param->nonlinearIV; 										 // This option is to consider I-V nonlinearity in cross-point array or not
 	cell.nonlinearity = param->nonlinearity; 									 // This is the nonlinearity for the current ratio at Vw and Vw/2
-    cell.heightInFeatureSize = (cell.accessType==CMOS_access)? param->heightInFeatureSize1T1R : param->heightInFeatureSizeCrossbar;         // Cell height in feature size
-	cell.widthInFeatureSize = (cell.accessType==CMOS_access)? param->widthInFeatureSize1T1R : param->widthInFeatureSizeCrossbar;
+    cell.heightInFeatureSize = param->heightInFeatureSize1T1R;         // Cell height in feature size
+	cell.widthInFeatureSize = param->widthInFeatureSize1T1R;
 
-    /*** subArray's property ***/
-	subArray->trainingEstimation = param->trainingEstimation;            
+    /*** subArray's property ***/         
 	subArray->conventionalParallel = param->conventionalParallel;                  
 	subArray->conventionalSequential = param->conventionalSequential;   
 	subArray->parallelBP = param->parallelBP;	
@@ -163,26 +178,51 @@ int main(int argc, char *argv[])
 	subArray->numWriteCellPerOperationNeuro = numCol;	       // For SRAM or analog RRAM in neuro mode
     subArray->maxNumWritePulse = MAX(cell.maxNumLevelLTP, cell.maxNumLevelLTD);
 
-	int numSubArrayRow = 4;	// The number of subarray's row
-	int numSubArrayCol = 3; // The number of subarray's col
+	/*** User defined num of elements ***/
+	int numSubArrayRow = 4;		// The number of subarray's row
+	int numSubArrayCol = 3; 	// The number of subarray's col
+	int numbusRow = 4;			// The number of bus's connect to addertree in row
+	int numbusCol = 1; 			// The number of bus's connect to addertree in col
+	int numsegment = 4;			// The number of segment after input partition
+	int nummuxin = 1;			// The number of output before mux
+	int nummuxout = 2;			// The number of output after mux
+	double resTg = cell.resistanceOn * IR_DROP_TOLERANCE + cell.resistanceOn;
 	
 	/*** initialize modules ***/
 	subArray->Initialize(numRow, numCol, param->unitLengthWireResistance);        // initialize subArray
 	if (param->parallelRead) {
-		adderTreeCM->Initialize(numSubArrayRow, log2((double)param->levelOutput)+param->numBitInput+param->numColPerSynapse+1, ceil((double)numSubArrayColCM*(double)numCol/(double)param->numColMuxed));
+		adderTreeCM->Initialize(numbusRow, log2((double)param->levelOutput)+param->numBitInput+param->numColPerSynapse+1, ceil((double)numbusCol*(double)numCol/(double)param->numColMuxed));
 	} else {
-		adderTreeCM->Initialize(numSubArrayRow, (log2((double)numRow)+param->cellBit-1)+param->numBitInput+param->numColPerSynapse+1, ceil((double)numSubArrayColCM*(double)numCol/(double)param->numColMuxed));
+		adderTreeCM->Initialize(numbusRow, (log2((double)numRow)+param->cellBit-1)+param->numBitInput+param->numColPerSynapse+1, ceil((double)numbusCol*(double)numCol/(double)param->numColMuxed));
 	}
 	
+	// For Buffer
 	bufferInputCM->Initialize(param->numBitInput*numRow, param->clkFreq);
+	bufferReg1->Initialize(param->numBitInput*numRow/numsegment, param->clkFreq);
+	bufferReg2->Initialize(param->numBitInput*numRow/numsegment, param->clkFreq);
+	bufferSoft->Initialize(param->numBitInput*numRow, param->clkFreq);
 	if (param->parallelRead) {
 		bufferOutputCM->Initialize((numCol/param->numColMuxed)*(log2((double)param->levelOutput)+param->numBitInput+param->numColPerSynapse+adderTreeCM->numStage), param->clkFreq);
 	} else {
 		bufferOutputCM->Initialize((numCol/param->numColMuxed)*((log2((double)numRow)+param->cellBit-1)+param->numBitInput+param->numColPerSynapse+adderTreeCM->numStage), param->clkFreq);
 	}
 	
-	busInputCM->Initialize(HORIZONTAL, numSubArrayRow, numSubArrayColCM, 0, numRow, subArray->height, subArray->width);
-	busOutputCM->Initialize(VERTICAL, numSubArrayRow, numSubArrayColCM, 0, numCol, subArray->height, subArray->width);
+	// For Bus
+	busInputCM->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
+	busToReg1->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
+	busToMT1->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
+	busToReg2->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
+	busToMT2->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
+	busToSoft->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
+	busSoftToInput->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
+	busRingBroadcast->Initialize(VERTICAL, numbusRow, numbusCol, 0, numCol, subArray->height, subArray->width);
+	busOutputCM->Initialize(VERTICAL, numbusRow, numbusCol, 0, numCol, subArray->height, subArray->width);
+
+	//For mux
+	mux->Initialize(nummuxout, nummuxin, resTg, 0);
+
+    cout << "number of subarray's row is " << numSubArrayRow << " with number of subarray's col is " << numSubArrayCol << endl;
+	cout << "number of bus's row is " << numbusRow << " with number of bus's col is " << numbusCol << endl;
     cout << endl;
     cout << "---------------------------- FloorPlan Done ------------------------------" << endl;
     cout << endl;
@@ -191,29 +231,52 @@ int main(int argc, char *argv[])
 
     /****************************************************** CalculateArea *******************************************************/
     double Area, AreaArray, AreaADC, AreaAccum, AreaOther;
-    vector<double> areaResults;
-	*height = 0;
-	*width = 0;
-	double area = 0;
+	double height = 0;
+	double width = 0;
+	double busarea = 0;
+	double bufferarea = 0;
+	double Totalarea = 0;
+	double widthArray = 0;
+	vector<double> areaResults;
 	
 	subArray->CalculateArea();
-    adderTreeCM->CalculateArea(NULL, subArray->width, NONE);
-    bufferInputCM->CalculateArea(numSubArrayRow*subArray->height, NULL, NONE);
-    bufferOutputCM->CalculateArea(NULL, numSubArrayCol*subArray->width, NONE);
-    
+	adderTreeCM->CalculateArea(NULL, subArray->width, NONE);
+	//buffer
+	bufferInputCM->CalculateArea(numSubArrayRow*subArray->height, NULL, NONE);
+	bufferReg1->CalculateArea(numSubArrayRow*subArray->height, NULL, NONE);
+	bufferReg2->CalculateArea(numSubArrayRow*subArray->height, NULL, NONE);
+	bufferSoft->CalculateArea(numSubArrayRow*subArray->height, NULL, NONE);
+	bufferOutputCM->CalculateArea(NULL, numSubArrayCol*subArray->width, NONE);
+	//bus
     busInputCM->CalculateArea(1, true); 
-    busOutputCM->CalculateArea(1, true);	
-    area += subArray->usedArea * (numSubArrayRow*numSubArrayCol) + adderTreeCM->area + bufferInputCM->area + bufferOutputCM->area;
+    busOutputCM->CalculateArea(1, true);
+	busToMT1->CalculateArea(1, true); 
+    busToMT2->CalculateArea(1, true);
+	busToReg1->CalculateArea(1, true); 
+    busToReg2->CalculateArea(1, true);
+	busToSoft->CalculateArea(1, true); 
+    busSoftToInput->CalculateArea(1, true);
+	busRingBroadcast->CalculateArea(1, true);
+	//mux
+	widthArray = (double)numCol * cell.widthInFeatureSize * tech.featureSize;
+	mux->CalculateArea(NULL, widthArray, NONE);
+	
+	busarea = busInputCM->area + busOutputCM->area + busToMT1->area + busToMT2->area + 
+			  busToReg1->area + busToReg2->area + busToSoft->area + busSoftToInput->area + busRingBroadcast->area;
+	bufferarea = bufferInputCM->area + bufferOutputCM->area + numSubArrayRow * bufferReg1->area +
+				 numSubArrayRow *bufferReg2->area + bufferSoft->area;
+
+    Totalarea = subArray->usedArea * (numSubArrayRow*numSubArrayCol) + adderTreeCM->area + bufferarea + busarea + numSubArrayRow * mux->area;
     
-    *height = sqrt(area);
-    *width = area/(*height);
+    height = sqrt(Totalarea);
+    width = Totalarea/(height);
     
-    areaResults.push_back(area);
+    areaResults.push_back(Totalarea);
     areaResults.push_back(subArray->areaADC*(numSubArrayRow*numSubArrayCol));
     areaResults.push_back(subArray->areaAccum*(numSubArrayRow*numSubArrayCol)+adderTreeCM->area);
     areaResults.push_back(subArray->areaOther*(numSubArrayRow*numSubArrayCol)+ bufferInputCM->area + bufferOutputCM->area);
     areaResults.push_back(subArray->areaArray*(numSubArrayRow*numSubArrayCol));
-
+	
     Area        = areaResults[0];
     AreaArray   = areaResults[1];
     AreaADC     = areaResults[2];
@@ -226,9 +289,8 @@ int main(int argc, char *argv[])
     ofstream breakdownfile;
     string breakdownfile_name = "./NeuroSim_Breakdown";
     breakdownfile_name.append(".csv");
-    breakdownfile.open(breakdownfile_name, ios::app);
-    if (breakdownfile.is_open())
-    {
+    breakdownfile.open(breakdownfile_name);
+    if (breakdownfile.is_open()){
         // firstly save the area results to file
         breakdownfile << "Total Area(m^2), ADC Area(m^2), Accumulation Area(m^2), Other Logic&Storage Area(m^2), Total CIM (FW+AG) Area (m^2)" << endl;
         breakdownfile << Area << "," << AreaADC << "," << AreaAccum << "," << AreaOther << "," << AreaArray << endl;
@@ -240,61 +302,101 @@ int main(int argc, char *argv[])
     }
     /****************************************************** CalculateArea *******************************************************/
 
-    /*************************************************** CalculatePerformance {}***************************************************/
+    /*************************************************** CalculatePerformance ***************************************************/
     double numComputation = 0;
-	numComputation += 2*(netStructure[0][0] * netStructure[0][1] * netStructure[0][2] * netStructure[0][3] * netStructure[0][4] * netStructure[0][5]);
-
-
+	numComputation = 2*(netStructure[0][0] * netStructure[0][1] * netStructure[0][2] * netStructure[0][3] * netStructure[0][4] * netStructure[0][5]);
     /*** define how many subArray are used to map the whole layer ***/
-	double ReadLatency, ReadDynamicEnergy, Leakage, LatencyADC, LatencyAccum, LatencyOther, BufferLatency;
-    double EnergyADC, EnergyAccum, EnergyOther, LeakageEnergy, BufferDynamicEnergy;
-    ReadLatency = 0;
-	ReadDynamicEnergy = 0;
-	Leakage = 0;
-	BufferLatency = 0;
+	double SWReadLatency, SWReadDynamicEnergy, SWLeakage, SWLatencyADC, SWLatencyAccum, SWLatencyOther, SWEnergyADC, SWEnergyAccum, SWEnergyOther;
+	double STReadLatency, STReadDynamicEnergy, STLeakage, STLatencyADC, STLatencyAccum, STLatencyOther, STEnergyADC, STEnergyAccum, STEnergyOther;
+	double SSReadLatency, SSReadDynamicEnergy, SSLeakage, SSLatencyADC, SSLatencyAccum, SSLatencyOther, SSEnergyADC, SSEnergyAccum, SSEnergyOther;
+	double ReadLatency, ReadDynamicEnergy, Leakage, LatencyADC, LatencyOther, LatencyAccum, EnergyADC, EnergyAccum, EnergyOther;
+	double BufferLatency, LeakageEnergy, BufferDynamicEnergy, BusLatency, BusDynamicEnergy;
+
+	// Segment * Weight's P&L  
+	SWReadLatency		=0;
+	SWReadDynamicEnergy	=0;
+	SWLeakage			=0;
+	SWLatencyADC		=0;
+	SWLatencyAccum		=0;
+	SWLatencyOther		=0;
+	SWEnergyADC			=0;
+	SWEnergyAccum		=0;
+	SWEnergyOther		=0;
+	// Segment * Transepose's P&L
+    STReadLatency 		= 0;
+	STReadDynamicEnergy = 0;
+	STLeakage 			= 0;
+	STEnergyADC 		= 0;
+	STEnergyAccum 		= 0;
+	STEnergyOther 		= 0;
+	STLatencyADC 		= 0;
+	STLatencyAccum 		= 0;
+	STLatencyOther 		= 0;
+	// Soft * Segment's P&L
+    SSReadLatency 		= 0;
+	SSReadDynamicEnergy = 0;
+	SSLeakage 			= 0;
+	SSEnergyADC 		= 0;
+	SSEnergyAccum 		= 0;
+	SSEnergyOther 		= 0;
+	SSLatencyADC 		= 0;
+	SSLatencyAccum 		= 0;
+	SSLatencyOther 		= 0;
+	//Other
+	BufferLatency 		= 0;
 	BufferDynamicEnergy = 0;
-	EnergyADC = 0;
-	EnergyAccum = 0;
-	EnergyOther = 0;
-	LatencyADC = 0;
-	LatencyAccum = 0;
-	LatencyOther = 0;
+	BusLatency			= 0;
+	BusDynamicEnergy	= 0;
+	LeakageEnergy 		= 0;
+	Leakage				= 0;
+	ReadLatency			= 0;
+	ReadDynamicEnergy	= 0;
+	LatencyADC 			= 0;
+	LatencyAccum		= 0;
+	LatencyOther		= 0;
+	EnergyADC 			= 0;
+	EnergyAccum			= 0;
+	EnergyOther			= 0;
 
 	/*** get weight matrix file Size ***/
-    // I = W*L*D  = 16*128*1  = netStructure[0][0]*netStructure[0][1]*netStructure[0][2]
-    // K = K*K'*D = 128*1*128 = netStructure[0][3]*netStructure[0][4]*netStructure[0][5]
+    // I = W*L*D  = 1*16*128  = netStructure[0][0]*netStructure[0][1]*netStructure[0][2]
+    // K = K*K'*D = 1*1*128 = netStructure[0][3]*netStructure[0][4]*netStructure[0][5]
 	int weightMatrixRow = netStructure[0][2]*netStructure[0][3]*netStructure[0][4];
 	int weightMatrixCol = netStructure[0][5];
 
     // weight matrix is further partitioned inside PE (among subArray) --> no duplicated
-    int numRowMatrix = min(param->numRowSubArray, weightMatrixRow-param->numRowSubArray);
-    int numColMatrix = min(param->numColSubArray, weightMatrixCol-param->numColSubArray);
-	int numInVector;
-
-	// load in whole file 
-	vector<vector<double>> oldMemory;
-	vector<vector<double>> newMemory;
-	vector<vector<double>> inputVector;
+    int numRowMatrix = min(param->numRowSubArray, weightMatrixRow);
+    int numColMatrix = min(param->numColSubArray, weightMatrixCol);
+	int numInVector = (netStructure[0][0]-netStructure[0][3]+1)/netStructure[0][7]*(netStructure[0][1]-netStructure[0][4]+1)/netStructure[0][7];
+	int numInSeg = numInVector/numsegment;
 	
-	newMemory = LoadInWeightData(argv[4*i+5], 1, 1, param->maxConductance, param->minConductance);
-	oldMemory = LoadInWeightData(argv[4*i+6], 1, 1, param->maxConductance, param->minConductance);
-	inputVector = LoadInInputData(argv[4*i+7]);
+	// load in whole file 
+	vector<vector<double>> weightMemory, transMemory, inputMemory;
+	vector<vector<double>> inputVector, softVector;
+	
+	weightMemory = LoadInWeightData(argv[5], 1, 1, param->maxConductance, param->minConductance);
+	transMemory = LoadInWeightData(argv[6], 1, 1, param->maxConductance, param->minConductance);
+	inputMemory = LoadInWeightData(argv[7], 1, 1, param->maxConductance, param->minConductance);
+	inputVector = LoadInInputData(argv[8]);
+	softVector = LoadInInputData(argv[9]);
 
     /*** assign weight and input to specific subArray ***/
-	vector<vector<double>> subArrayMemoryOld;
-    vector<vector<double>> subArrayMemory;
-	vector<vector<double>> subArrayInput;
+    vector<vector<double>> subArrayWeight,subArrayTrans,subArrayIn;
+	vector<vector<double>> subArraySeg, subArraySoft;
 
-    subArrayMemoryOld = CopySubArray(oldMemory, param->numRowSubArray, param->numColSubArray, numRowMatrix, numColMatrix);
-    subArrayMemory = CopySubArray(newMemory, param->numRowSubArray, param->numColSubArray, numRowMatrix, numColMatrix);
-    subArrayInput = CopySubInput(inputVector, param->numRowSubArray, numInVector, numRowMatrix);
-
-    for (int k=0; k<numInVector; k++) {                 // calculate single subArray through the total input vectors
-        double activityRowRead = 0;
+    subArrayWeight = CopySubArray(weightMemory, 0, 0, numRowMatrix, numColMatrix);	//128*128
+	subArrayTrans = CopySubArray(transMemory, 0, 0, numRowMatrix, numInSeg);	//128*4
+	subArrayIn  = CopySubArray(inputMemory, 0, 0, numInSeg, numRowMatrix);		//4*128
+	subArraySeg = CopySubInput(inputVector, 0, numInSeg, numRowMatrix);			//4*128
+	subArraySoft = CopySubInput(softVector, 0, numInSeg, numInSeg);				//4*4
+	// cout << "CopySubInput : " << endl;
+	
+    for (int k=0; k<numInSeg; k++) {                 // calculate WeightsubArray through the total Segment vectors
+        // cout << "k is : " << k << " with numInVector " << numInVector << endl;
+		double activityRowRead = 0;
         vector<double> input;
-        input = GetInputVector(subArrayInput, k, &activityRowRead);
-        subArray->activityRowRead = activityRowRead;
-        
+        input = GetInputVector(subArraySeg, k, &activityRowRead);
+		subArray->activityRowRead = activityRowRead;
         int cellRange = pow(2, param->cellBit);
         if (param->parallelRead) {
             subArray->levelOutput = param->levelOutput;               // # of levels of the multilevelSenseAmp output
@@ -303,58 +405,183 @@ int main(int argc, char *argv[])
         }
         
         vector<double> columnResistance, rowResistance;
-        columnResistance = GetColumnResistance(input, subArrayMemory, cell, param->parallelRead, subArray->resCellAccess);
-        rowResistance = GetRowResistance(input, subArrayMemory, cell, param->parallelBP, subArray->resCellAccess);
+		// cout << "columnResistance" << endl;
+        columnResistance = GetColumnResistance(input, subArrayWeight, cell, param->parallelRead, subArray->resCellAccess);
+        // cout << "rowResistance" << endl;
+		rowResistance = GetRowResistance(input, subArrayWeight, cell, param->parallelBP, subArray->resCellAccess);
         
+	    // cout << "CalculateLatency" << endl;
         subArray->CalculateLatency(1e20, columnResistance, rowResistance);
-        subArray->CalculatePower(columnResistance, rowResistance);
+        // cout << "CalculatePower" << endl;
+		subArray->CalculatePower(columnResistance, rowResistance);
         
-        ReadLatency += subArray->readLatency;
-        ReadDynamicEnergy += subArray->readDynamicEnergy;
-        Leakage = subArray->leakage;
+        SWReadLatency = subArray->readLatency;
+        SWReadDynamicEnergy = subArray->readDynamicEnergy;
+        SWLeakage = subArray->leakage;
         
-        LatencyADC += subArray->readLatencyADC;
-        LatencyAccum += subArray->readLatencyAccum;
-        LatencyOther += subArray->readLatencyOther;
+        SWLatencyADC = subArray->readLatencyADC;
+        SWLatencyAccum = subArray->readLatencyAccum;
+        SWLatencyOther = subArray->readLatencyOther;
         
-        EnergyADC += subArray->readDynamicEnergyADC;
-        EnergyAccum += subArray->readDynamicEnergyAccum;
-        EnergyOther += subArray->readDynamicEnergyOther;
+        SWEnergyADC = subArray->readDynamicEnergyADC;
+        SWEnergyAccum = subArray->readDynamicEnergyAccum;
+        SWEnergyOther = subArray->readDynamicEnergyOther;
     }
+
+	
+    for (int k=0; k<numInSeg; k++) {                 // calculate transposesubArray through the total segment vectors
+        // cout << "k is : " << k << " with numInVector " << numInVector << endl;
+		double activityRowRead = 0;
+        vector<double> input;
+        input = GetInputVector(subArraySeg, k, &activityRowRead);
+		subArray->activityRowRead = activityRowRead;
+        int cellRange = pow(2, param->cellBit);
+        if (param->parallelRead) {
+            subArray->levelOutput = param->levelOutput;               // # of levels of the multilevelSenseAmp output
+        } else {
+            subArray->levelOutput = cellRange;
+        }
+        
+        vector<double> columnResistance, rowResistance;
+		// cout << "columnResistance" << endl;
+        columnResistance = GetColumnResistance(input, subArrayTrans, cell, param->parallelRead, subArray->resCellAccess);
+        // cout << "rowResistance" << endl;
+		rowResistance = GetRowResistance(input, subArrayTrans, cell, param->parallelBP, subArray->resCellAccess);
+        
+	    // cout << "CalculateLatency" << endl;
+        subArray->CalculateLatency(1e20, columnResistance, rowResistance);
+        // cout << "CalculatePower" << endl;
+		subArray->CalculatePower(columnResistance, rowResistance);
+        
+        STReadLatency += subArray->readLatency;
+        STReadDynamicEnergy += subArray->readDynamicEnergy;
+        STLeakage = subArray->leakage;
+        
+        STLatencyADC += subArray->readLatencyADC;
+        STLatencyAccum += subArray->readLatencyAccum;
+        STLatencyOther += subArray->readLatencyOther;
+        
+        STEnergyADC += subArray->readDynamicEnergyADC;
+        STEnergyAccum += subArray->readDynamicEnergyAccum;
+        STEnergyOther += subArray->readDynamicEnergyOther;
+    }
+
+	for (int k=0; k<numInSeg; k++) {                 // calculate segmentsubArray through the total softmax vectors
+        // cout << "k is : " << k << " with numInVector " << numInVector << endl;
+		double activityRowRead = 0;
+        vector<double> input;
+        input = GetInputVector(subArraySoft, k, &activityRowRead);
+		subArray->activityRowRead = activityRowRead;
+        int cellRange = pow(2, param->cellBit);
+        if (param->parallelRead) {
+            subArray->levelOutput = param->levelOutput;               // # of levels of the multilevelSenseAmp output
+        } else {
+            subArray->levelOutput = cellRange;
+        }
+        
+        vector<double> columnResistance, rowResistance;
+		// cout << "columnResistance" << endl;
+        columnResistance = GetColumnResistance(input, subArrayIn, cell, param->parallelRead, subArray->resCellAccess);
+        // cout << "rowResistance" << endl;
+		rowResistance = GetRowResistance(input, subArrayIn, cell, param->parallelBP, subArray->resCellAccess);
+        
+	    // cout << "CalculateLatency" << endl;
+        subArray->CalculateLatency(1e20, columnResistance, rowResistance);
+        // cout << "CalculatePower" << endl;
+		subArray->CalculatePower(columnResistance, rowResistance);
+        
+        SSReadLatency = subArray->readLatency;
+        SSReadDynamicEnergy = subArray->readDynamicEnergy;
+        SSLeakage = subArray->leakage;
+        
+        SSLatencyADC = subArray->readLatencyADC;
+        SSLatencyAccum = subArray->readLatencyAccum;
+        SSLatencyOther = subArray->readLatencyOther;
+        
+        SSEnergyADC = subArray->readDynamicEnergyADC;
+        SSEnergyAccum = subArray->readDynamicEnergyAccum;
+        SSEnergyOther = subArray->readDynamicEnergyOther;
+    }
+
 
     adderTreeCM->CalculateLatency((int)(numInVector/param->numBitInput)*ceil(param->numColMuxed/param->numColPerSynapse), ceil((double) weightMatrixRow/(double) param->numRowSubArray), 0);
     adderTreeCM->CalculatePower((int)(numInVector/param->numBitInput)*ceil(param->numColMuxed/param->numColPerSynapse), ceil((double) weightMatrixRow/(double) param->numRowSubArray));
-    ReadLatency += adderTreeCM->readLatency;
-    LatencyAccum += adderTreeCM->readLatency*((param->trainingEstimation)&&(layerNumber!=0)==true? 2:1);
-    ReadDynamicEnergy += adderTreeCM->readDynamicEnergy;
-    EnergyAccum += adderTreeCM->readDynamicEnergy*((param->trainingEstimation)&&(layerNumber!=0)==true? 2:1);
-	
+    // LatencyAccum = adderTreeCM->readLatency;
+    // EnergyAccum += adderTreeCM->readDynamicEnergy;
 	//considering buffer activation: no matter speedup or not, the total number of data transferred is fixed
 	// input buffer: total num of data loaded in = weightMatrixRow*numInVector
 	// output buffer: total num of data transferred = weightMatrixRow*numInVector/param->numBitInput (total num of IFM in the PE) *adderTree->numAdderTree*adderTree->numAdderBit (bit precision of OFMs) 
     bufferInputCM->CalculateLatency(0, numInVector*ceil((double) weightMatrixRow/(double) param->numRowSubArray));
     bufferOutputCM->CalculateLatency(0, numInVector/param->numBitInput);
+	bufferReg1->CalculateLatency(0, numInSeg*ceil((double) weightMatrixRow/(double) param->numRowSubArray));
+	bufferReg2->CalculateLatency(0, numInSeg*ceil((double) weightMatrixRow/(double) param->numRowSubArray));
+	bufferSoft->CalculateLatency(0, numInSeg*ceil((double) weightMatrixRow/(double) param->numRowSubArray));
+
     bufferInputCM->CalculatePower(weightMatrixRow/param->numRowPerSynapse, numInVector);
     bufferOutputCM->CalculatePower(weightMatrixCol/param->numColPerSynapse*adderTreeCM->numAdderBit, numInVector/param->numBitInput);
+	bufferReg1->CalculatePower(weightMatrixRow/param->numRowPerSynapse, numInSeg*numsegment);
+	bufferReg2->CalculatePower(weightMatrixRow/param->numRowPerSynapse, numInSeg*numsegment);
+	bufferSoft->CalculatePower(weightMatrixRow/param->numRowPerSynapse, numInSeg*numsegment);
     
-    busInputCM->CalculateLatency(weightMatrixRow/param->numRowPerSynapse*numInVector/(busInputCM->busWidth)); 
+    busInputCM->CalculateLatency(weightMatrixRow/param->numRowPerSynapse*numInVector/(busInputCM->busWidth));
+	busToMT1->CalculateLatency(weightMatrixRow/param->numRowPerSynapse*numInSeg/(busToMT1->busWidth));
+	busToMT2->CalculateLatency(weightMatrixRow/param->numRowPerSynapse*numInSeg/(busToMT2->busWidth));
+	busToReg1->CalculateLatency(weightMatrixRow/param->numRowPerSynapse*numInSeg/(busToReg1->busWidth));
+	busToReg2->CalculateLatency(weightMatrixRow/param->numRowPerSynapse*numInSeg/(busToReg2->busWidth));
+	busSoftToInput->CalculateLatency(weightMatrixRow/param->numRowPerSynapse*numInSeg/(busSoftToInput->busWidth));
+	busToSoft->CalculateLatency(weightMatrixRow/param->numRowPerSynapse*numInSeg/(busToSoft->busWidth));
+
     busInputCM->CalculatePower(busInputCM->busWidth, weightMatrixRow/param->numRowPerSynapse*numInVector/(busInputCM->busWidth));
+	busToMT1->CalculatePower(busToMT1->busWidth, weightMatrixRow/param->numRowPerSynapse*numInSeg/(busToMT1->busWidth));
+	busToMT2->CalculatePower(busToMT2->busWidth, weightMatrixRow/param->numRowPerSynapse*numInSeg/(busToMT2->busWidth));
+	busToReg1->CalculatePower(busToReg1->busWidth, weightMatrixRow/param->numRowPerSynapse*numInSeg/(busToReg1->busWidth));
+	busToReg2->CalculatePower(busToReg2->busWidth, weightMatrixRow/param->numRowPerSynapse*numInSeg/(busToReg2->busWidth));
+	busSoftToInput->CalculatePower(busSoftToInput->busWidth, weightMatrixRow/param->numRowPerSynapse*numInSeg/(busSoftToInput->busWidth));
+	busToSoft->CalculatePower(busToSoft->busWidth, weightMatrixRow/param->numRowPerSynapse*numInSeg/(busToSoft->busWidth));
     
     if (param->parallelRead) {
         busOutputCM->CalculateLatency((weightMatrixCol/param->numColPerSynapse*log2((double)param->levelOutput)*numInVector/param->numBitInput)/(busOutputCM->numRow*busOutputCM->busWidth));
         busOutputCM->CalculatePower(busOutputCM->numRow*busOutputCM->busWidth, (weightMatrixCol/param->numColPerSynapse*log2((double)param->levelOutput)*numInVector/param->numBitInput)/(busOutputCM->numRow*busOutputCM->busWidth));
-    } else {
+		busRingBroadcast->CalculateLatency((weightMatrixCol/param->numColPerSynapse*log2((double)param->levelOutput)*numInSeg/param->numBitInput)/(busRingBroadcast->numRow*busRingBroadcast->busWidth));
+        busRingBroadcast->CalculatePower(busRingBroadcast->numRow*busRingBroadcast->busWidth, (weightMatrixCol/param->numColPerSynapse*log2((double)param->levelOutput)*numInSeg/param->numBitInput)/(busRingBroadcast->numRow*busRingBroadcast->busWidth));
+	} else {
         busOutputCM->CalculateLatency((weightMatrixCol/param->numColPerSynapse*(log2((double)param->numRowSubArray)+param->cellBit-1)*numInVector/param->numBitInput)/(busOutputCM->numRow*busOutputCM->busWidth));
         busOutputCM->CalculatePower(busOutputCM->numRow*busOutputCM->busWidth, (weightMatrixCol/param->numColPerSynapse*(log2((double)param->numRowSubArray)+param->cellBit-1)*numInVector/param->numBitInput)/(busOutputCM->numRow*busOutputCM->busWidth));
+		busRingBroadcast->CalculateLatency((weightMatrixCol/param->numColPerSynapse*(log2((double)param->numRowSubArray)+param->cellBit-1)*numInSeg/param->numBitInput)/(busRingBroadcast->numRow*busRingBroadcast->busWidth));
+        busRingBroadcast->CalculatePower(busRingBroadcast->numRow*busRingBroadcast->busWidth, (weightMatrixCol/param->numColPerSynapse*(log2((double)param->numRowSubArray)+param->cellBit-1)*numInSeg/param->numBitInput)/(busRingBroadcast->numRow*busRingBroadcast->busWidth));
     }
-    Leakage = Leakage*numSubArrayRow*numSubArrayCol + adderTreeCM->leakage + bufferInputCM->leakage + bufferOutputCM->leakage;
-    
-    ReadLatency += (bufferInputCM->readLatency + bufferOutputCM->readLatency + busInputCM->readLatency + busOutputCM->readLatency);
-    ReadDynamicEnergy += (bufferInputCM->readDynamicEnergy + bufferOutputCM->readDynamicEnergy + busInputCM->readDynamicEnergy + busOutputCM->readDynamicEnergy);
+
+    Leakage = numsegment*(3*SWLeakage + STLeakage +	SSLeakage) + //Weight Q,K,V & transpose I & I
+			  adderTreeCM->leakage +							 //AdderTree
+			  bufferInputCM->leakage + bufferOutputCM->leakage + bufferSoft->leakage +	//Buffer
+			  numsegment*(bufferReg1->leakage + bufferReg2->leakage);
+	
+	LatencyADC = SWLatencyADC + STLatencyADC + SSLatencyADC;
+	LatencyOther = SWLatencyOther + STLatencyOther + SSLatencyOther;
+	LatencyAccum = SWLatencyAccum + STLatencyAccum + SSLatencyAccum;
+	BufferLatency =  bufferReg1 -> readLatency + bufferReg2->readLatency + 
+					 bufferInputCM->readLatency + bufferOutputCM->readLatency + bufferSoft->readLatency;
+    BufferDynamicEnergy = bufferReg1 -> readDynamicEnergy + bufferReg2->readDynamicEnergy + 
+						  bufferInputCM->readDynamicEnergy + bufferOutputCM->readDynamicEnergy + bufferSoft->readDynamicEnergy;
+	BusLatency	= busInputCM->readLatency + busOutputCM->readLatency +		//bus
+				  busToMT1->readLatency + busToMT2->readLatency + busToReg1->readLatency + busToReg2->readLatency +
+				  busRingBroadcast->readLatency + busSoftToInput->readLatency + busToSoft->readLatency +
+				  adderTreeCM->readLatency;
+	BusDynamicEnergy =  busInputCM->readDynamicEnergy + busOutputCM->readDynamicEnergy +		//bus
+				  		busToMT1->readDynamicEnergy + busToMT2->readDynamicEnergy + busToReg1->readDynamicEnergy + busToReg2->readDynamicEnergy+
+				  		busRingBroadcast->readDynamicEnergy + busSoftToInput->readDynamicEnergy + busToSoft->readDynamicEnergy +
+						adderTreeCM->readDynamicEnergy;  
+	
+	EnergyADC = SWEnergyADC + STEnergyADC + SSEnergyADC;
+	EnergyOther = SWEnergyOther + STEnergyOther + SSEnergyOther;
+	EnergyAccum = SWEnergyAccum + STEnergyAccum + SSEnergyAccum;
+    ReadLatency = SWReadLatency + STReadLatency + SSReadLatency + BufferLatency + BusLatency;
+    ReadDynamicEnergy = SWReadDynamicEnergy + STReadDynamicEnergy + SSReadDynamicEnergy + BufferDynamicEnergy + BusDynamicEnergy;
+    LeakageEnergy = Leakage * ReadLatency;
+						
     
     LeakageEnergy = Leakage * ReadLatency;
-    BufferLatency = (bufferInputCM->readLatency + bufferOutputCM->readLatency)*((param->trainingEstimation)&&(layerNumber!=0)==true? 2:1);
-    BufferDynamicEnergy = (bufferInputCM->readDynamicEnergy + bufferOutputCM->readDynamicEnergy)*((param->trainingEstimation)&&(layerNumber!=0)==true? 2:1);
+    
 
     cout << "------------------------------ Summary --------------------------------" << endl;
     cout << endl;
@@ -366,23 +593,24 @@ int main(int argc, char *argv[])
     cout << endl;
     cout << "-----------------------------------Chip layer-by-layer Estimation---------------------------------" << endl;
 
-    cout << "readLatency of Forward (per epoch) is: " << ReadLatency * 1e9 << "ns" << endl;
-    cout << "readDynamicEnergy of Forward (per epoch) is: " << ReadDynamicEnergy * 1e12 << "pJ" << endl;
-    cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
+    cout << "readLatency  is: " << ReadLatency * 1e9 << "ns" << endl;
+    cout << "readDynamicEnergy  is: " << ReadDynamicEnergy * 1e12 << "pJ" << endl;
     cout << "leakage Energy is: " << LeakageEnergy * 1e12 << "pJ" << endl;
     cout << "leakage Power is: " << Leakage * 1e6 << "uW" << endl;
     cout << endl;
     cout << "************************ Breakdown of Latency and Dynamic Energy *************************" << endl;
     cout << endl;
     cout << "----------- ADC (or S/As and precharger for SRAM) readLatency is : " << LatencyADC * 1e9 << "ns" << endl;
-    cout << "----------- Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) readLatency is : " << chipLatencyAccum * 1e9 << "ns" << endl;
+    cout << "----------- Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) readLatency is : " << LatencyAccum * 1e9 << "ns" << endl;
     cout << "----------- Synaptic Array w/o ADC (Forward + Activate Gradient) readLatency is : " << LatencyOther * 1e9 << "ns" << endl;
     cout << "----------- Buffer readLatency is: " << BufferLatency * 1e9 << "ns" << endl;
+	cout << "----------- Bus readLatency is: " << BusLatency * 1e9 << "ns" << endl;
     cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
     cout << "----------- ADC (or S/As and precharger for SRAM) readDynamicEnergy is : " << EnergyADC * 1e12 << "pJ" << endl;
-    cout << "----------- Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) readDynamicEnergy is : " << chipEnergyAccum * 1e12 << "pJ" << endl;
+    cout << "----------- Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) readDynamicEnergy is : " << EnergyAccum * 1e12 << "pJ" << endl;
     cout << "----------- Synaptic Array w/o ADC (Forward + Activate Gradient) readDynamicEnergy is : " << EnergyOther * 1e12 << "pJ" << endl;
     cout << "----------- Buffer readDynamicEnergy is: " << BufferDynamicEnergy * 1e12 << "pJ" << endl;
+	cout << "----------- Bus readDynamicEnergy is: " << BusDynamicEnergy * 1e9 << "ns" << endl;
     cout << endl;
     cout << "************************ Breakdown of Latency and Dynamic Energy *************************" << endl;
     cout << endl;
@@ -395,15 +623,10 @@ int main(int argc, char *argv[])
 
     cout << "-------------------------------------- Hardware Performance Done --------------------------------------" << endl;
     cout << endl;
-    auto stop = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::seconds>(stop - start);
-    cout << "------------------------------ Simulation Performance --------------------------------" << endl;
-    cout << "Total Run-time of NeuroSim: " << duration.count() << " seconds" << endl;
-    cout << "------------------------------ Simulation Performance --------------------------------" << endl;
-
+    
     // save results to top level csv file (only total results)
     ofstream outfile;
-    outfile.open("NeuroSim_Output.csv", ios::app);
+    outfile.open("NeuroSim_Output.csv");
     if (outfile.is_open())
     {
         outfile << ReadLatency << ",";
@@ -427,7 +650,7 @@ vector<vector<double>> getNetStructure(const string &inputfile)
     ifstream infile(inputfile.c_str());
     string inputline;
     string inputval;
-
+	cout << inputfile.c_str() << endl;
     int ROWin = 0, COLin = 0;
     if (!infile.good())
     {
@@ -480,163 +703,7 @@ vector<vector<double>> getNetStructure(const string &inputfile)
     netStructure.clear();
 }
 
-vector<vector<double> > CopySubArray(const vector<vector<double> > &orginal, int positionRow, int positionCol, int numRow, int numCol) {
-	vector<vector<double> > copy;
-	for (int i=0; i<numRow; i++) {
-		vector<double> copyRow;
-		for (int j=0; j<numCol; j++) {
-			copyRow.push_back(orginal[positionRow+i][positionCol+j]);
-		}
-		copy.push_back(copyRow);
-		copyRow.clear();
-	}
-	return copy;
-	copy.clear();
-} 
-
-vector<vector<double> > CopySubInput(const vector<vector<double> > &orginal, int positionRow, int numInputVector, int numRow) {
-	vector<vector<double> > copy;
-	for (int i=0; i<numRow; i++) {
-		vector<double> copyRow;
-		for (int j=0; j<numInputVector; j++) {
-			copyRow.push_back(orginal[positionRow+i][j]);
-		}
-		copy.push_back(copyRow);
-		copyRow.clear();
-	}
-	return copy;
-	copy.clear();
-}
-
-vector<double> GetInputVector(const vector<vector<double> > &input, int numInput, double *activityRowRead) {
-	vector<double> copy;
-	for (int i=0; i<input.size(); i++) {
-		double x = input[i][numInput];
-		copy.push_back(x);   
-	}  
-	double numofreadrow = 0;  // initialize readrowactivity parameters
-	for (int i=0; i<input.size(); i++) {
-		if (copy[i] != 0) {
-			numofreadrow += 1;
-		}else {
-			numofreadrow += 0;
-		}
-	}
-	double totalnumRow = input.size();
-	*(activityRowRead) = numofreadrow/totalnumRow;
-	return copy;
-	copy.clear();
-} 
-
-vector<double> GetColumnResistance(const vector<double> &input, const vector<vector<double> > &weight, MemCell& cell, bool parallelRead, double resCellAccess) {
-	vector<double> resistance;
-	vector<double> conductance;
-	double columnG = 0; 
-	
-	for (int j=0; j<weight[0].size(); j++) {
-		int activatedRow = 0;
-		columnG = 0;
-		for (int i=0; i<weight.size(); i++) {
-			if (cell.memCellType == Type::RRAM) {	// eNVM
-				double totalWireResistance;
-				if (cell.accessType == CMOS_access) {
-					totalWireResistance = (double) 1.0/weight[i][j] + (j + 1) * param->wireResistanceRow + (weight.size() - i) * param->wireResistanceCol + cell.resistanceAccess;
-				} else {
-					totalWireResistance = (double) 1.0/weight[i][j] + (j + 1) * param->wireResistanceRow + (weight.size() - i) * param->wireResistanceCol;
-				}
-				if ((int) input[i] == 1) {
-					columnG += (double) 1.0/totalWireResistance;
-					activatedRow += 1 ;
-				} else {
-					columnG += 0;
-				}
-			} else if (cell.memCellType == Type::FeFET) {
-				double totalWireResistance;
-				totalWireResistance = (double) 1.0/weight[i][j] + (j + 1) * param->wireResistanceRow + (weight.size() - i) * param->wireResistanceCol;
-				if ((int) input[i] == 1) {
-					columnG += (double) 1.0/totalWireResistance;
-					activatedRow += 1 ;
-				} else {
-					columnG += 0;
-				}
-				
-			} else if (cell.memCellType == Type::SRAM) {	
-				// SRAM: weight value do not affect sense energy --> read energy calculated in subArray.cpp (based on wireRes wireCap etc)
-				double totalWireResistance = (double) (resCellAccess + param->wireResistanceCol);
-				if ((int) input[i] == 1) {
-					columnG += (double) 1.0/totalWireResistance;
-					activatedRow += 1 ;
-				} else {
-					columnG += 0;
-				}
-			}
-		}
-		
-		if (cell.memCellType == Type::RRAM || cell.memCellType == Type::FeFET) {
-			if (!parallelRead) {  
-				conductance.push_back((double) columnG/activatedRow);
-			} else {
-				conductance.push_back(columnG);
-			}
-		} else {
-			conductance.push_back(columnG);
-		}
-	}
-	// covert conductance to resistance
-	for (int i=0; i<weight[0].size(); i++) {
-		resistance.push_back((double) 1.0/conductance[i]);
-	}
-		
-	return resistance;
-	resistance.clear();
-} 
-
-vector<double> GetRowResistance(const vector<double> &input, const vector<vector<double> > &weight, MemCell& cell, bool parallelRead, double resCellAccess) {
-	vector<double> resistance;
-	vector<double> conductance;
-	double rowG = 0; 
-	double totalWireResistance;
-	
-	for (int i=0; i<weight.size(); i++) {
-		int activatedCol = ceil(weight[0].size()/2);  // assume 50% of the input vector is 1
-		rowG = 0;
-		for (int j=0; j<weight[0].size(); j++) {
-			if (cell.memCellType == Type::RRAM) {	// eNVM
-				if (cell.accessType == CMOS_access) {
-					totalWireResistance = (double) 1.0/weight[i][j] + (i + 1) * param->wireResistanceRow + (weight[0].size() - j) * param->wireResistanceCol + cell.resistanceAccess;
-				} else {
-					totalWireResistance = (double) 1.0/weight[i][j] + (i + 1) * param->wireResistanceRow + (weight[0].size() - j) * param->wireResistanceCol;
-				}
-			} else if (cell.memCellType == Type::FeFET) {
-				totalWireResistance = (double) 1.0/weight[i][j] + (i + 1) * param->wireResistanceRow + (weight[0].size() - j) * param->wireResistanceCol;
-			} else if (cell.memCellType == Type::SRAM) {	
-				// SRAM: weight value do not affect sense energy --> read energy calculated in subArray.cpp (based on wireRes wireCap etc)
-				totalWireResistance = (double) (resCellAccess + param->wireResistanceCol);
-			}
-		}
-		rowG = (double) 1.0/totalWireResistance * activatedCol;
-		
-		if (cell.memCellType == Type::RRAM || cell.memCellType == Type::FeFET) {
-			if (!parallelRead) {  
-				conductance.push_back((double) rowG/activatedCol);
-			} else {
-				conductance.push_back(rowG);
-			}
-		} else {
-			conductance.push_back(rowG);
-		}
-	}
-	// covert conductance to resistance
-	for (int i=0; i<weight.size(); i++) {
-		resistance.push_back((double) 1.0/conductance[i]);
-		
-	}
-		
-	return resistance;
-	resistance.clear();
-} 
-
-vector<vector<double> > LoadInWeightData(const string &weightfile, int numRowPerSynapse, int numColPerSynapse, double maxConductance, double minConductance) {
+vector<vector<double>> LoadInWeightData(const string &weightfile, int numRowPerSynapse, int numColPerSynapse, double maxConductance, double minConductance) {
 	
 	ifstream fileone(weightfile.c_str());                           
 	string lineone;
@@ -683,55 +750,13 @@ vector<vector<double> > LoadInWeightData(const string &weightfile, int numRowPer
 				istringstream fs;
 				fs.str(valone);
 				double f=0;
-				fs >> f;	
-				if ((param->memcelltype != 1)&&(param->synapseBit == param->cellBit)) { // training version: linear mapping
-					weightrow.push_back((f+1)/2*(maxConductance-minConductance)+minConductance);
-				} else {
-					//normalize weight to integer
-					double newdata = ((NormalizedMax-NormalizedMin)/(RealMax-RealMin)*(f-RealMax)+NormalizedMax);
-					if (newdata >= 0) {
-						newdata += 0.5;
-					}else {
-						newdata -= 0.5;
-					}
-					// map and expend the weight in memory array
-					int cellrange = pow(2, param->cellBit);
-					vector<int> synapsevector(numColPerSynapse);       
-					int value = newdata; 
-					if (param->BNNparallelMode) {
-						if (value == 1) {
-							weightrow.push_back(maxConductance);
-							weightrow.push_back(minConductance);
-						} else {
-							weightrow.push_back(minConductance);
-							weightrow.push_back(maxConductance);
-						}
-					} else if (param->XNORparallelMode || param->XNORsequentialMode) {
-						if (value == 1) {
-							weightrow.push_back(maxConductance);
-							weightrowb.push_back(minConductance);
-						} else {
-							weightrow.push_back(minConductance);
-							weightrowb.push_back(maxConductance);
-						}
-					} else {
-						int remainder;   
-						for (int z=0; z<numColPerSynapse; z++) {   
-							remainder = (int) value%cellrange;
-							value = (int) value/cellrange;
-							synapsevector.insert(synapsevector.begin(), value/*remainder*/);
-						}
-						for (int u=0; u<numColPerSynapse; u++) {
-							int cellvalue = synapsevector[u];
-							double conductance = cellvalue/(cellrange-1) * (maxConductance-minConductance) + minConductance;
-							weightrow.push_back(conductance);
-						}
-					}
-				}
+				fs >> f;
+				// training version: linear mapping
+				weightrow.push_back((f+1)/2*(maxConductance-minConductance)+minConductance);
 			}
 		}
 		weight.push_back(weightrow);
-			weightrow.clear();
+		weightrow.clear();
 	}
 	fileone.close();
 	
@@ -739,7 +764,7 @@ vector<vector<double> > LoadInWeightData(const string &weightfile, int numRowPer
 	weight.clear();
 }
 
-vector<vector<double> > LoadInInputData(const string &inputfile) {
+vector<vector<double>> LoadInInputData(const string &inputfile) {
 	
 	ifstream infile(inputfile.c_str());     
 	string inputline;
@@ -763,7 +788,8 @@ vector<vector<double> > LoadInInputData(const string &inputfile) {
 		}	
 	}
 	infile.clear();
-	infile.seekg(0, ios::beg);          
+	infile.seekg(0, ios::beg);    
+	// cout << "ROWin, COLin" << ROWin << " , " << COLin << endl;      
 	
 	vector<vector<double> > inputvector;              
 	// load the data into inputvector ...
@@ -774,40 +800,17 @@ vector<vector<double> > LoadInInputData(const string &inputfile) {
 		istringstream iss;
 		iss.str(inputline);
 		for (int col=0; col<COLin; col++) {
+			// cout << "at ROW, COL" << row << " , " << col << endl;
 			while(getline(iss, inputval, ',')){	
 				istringstream fs;
 				fs.str(inputval);
 				double f=0;
 				fs >> f;
-				
-				if (param->BNNparallelMode) {
-					if (f == 1) {
-						inputvectorrow.push_back(1);
-					} else {
-						inputvectorrow.push_back(0);
-					}
-				} else if (param->XNORparallelMode || param->XNORsequentialMode) {
-					if (f == 1) {
-						inputvectorrow.push_back(1);
-						inputvectorrowb.push_back(0);
-					} else {
-						inputvectorrow.push_back(0);
-						inputvectorrowb.push_back(1);
-					}
-				} else {
-					inputvectorrow.push_back(f);
-				}
+				inputvectorrow.push_back(f);
 			}
 		}
-		if (param->XNORparallelMode || param->XNORsequentialMode) {
-			inputvector.push_back(inputvectorrow);
-			inputvectorrow.clear();
-			inputvector.push_back(inputvectorrowb);
-			inputvectorrowb.clear();
-		} else {
-			inputvector.push_back(inputvectorrow);
-			inputvectorrow.clear();
-		}
+		inputvector.push_back(inputvectorrow);
+		inputvectorrow.clear();
 	}
 	// close the input file ...
 	infile.close();
@@ -816,4 +819,126 @@ vector<vector<double> > LoadInInputData(const string &inputfile) {
 	inputvector.clear();
 }
 
+vector<vector<double>> CopySubArray(const vector<vector<double> > &orginal, int positionRow, int positionCol, int numRow, int numCol) {
+	vector<vector<double>> copy;
+	for (int i=0; i<numRow; i++) {
+		vector<double> copyRow;
+		for (int j=0; j<numCol; j++) {
+			copyRow.push_back(orginal[positionRow+i][positionCol+j]);
+		}
+		copy.push_back(copyRow);
+		copyRow.clear();
+	}
+	return copy;
+	copy.clear();
+} 
+
+vector<vector<double>> CopySubInput(const vector<vector<double> > &orginal, int positionRow, int numInputVector, int numRow) {
+	vector<vector<double> > copy;
+	// cout << "nR , nIV" << numRow << " " << numInputVector << endl;
+	// cout << "CopySubInput" << orginal[positionRow][0] << endl;
+	for (int i=0; i<numInputVector; i++) {
+		vector<double> copyRow;
+		for (int j=0; j<numRow; j++) {
+			// cout << "at i, j" << positionRow+i << " , " << j << endl;
+			copyRow.push_back(orginal[positionRow+i][j]);
+		}
+		copy.push_back(copyRow);
+		copyRow.clear();
+	}
+	// cout << "fin CSI" << endl;
+	return copy;
+	copy.clear();
+}
+
+vector<double> GetInputVector(const vector<vector<double> > &input, int numInput, double *activityRowRead) {
+	vector<double> copy;
+	for (int i=0; i<input.size(); i++) {
+		double x = input[i][numInput];
+		copy.push_back(x);   
+	}  
+	double numofreadrow = 0;  // initialize readrowactivity parameters
+	for (int i=0; i<input.size(); i++) {
+		if (copy[i] != 0) {
+			numofreadrow += 1;
+		}else {
+			numofreadrow += 0;
+		}
+	}
+	double totalnumRow = input.size();
+	*(activityRowRead) = numofreadrow/totalnumRow;
+	return copy;
+	copy.clear();
+} 
+
+vector<double> GetColumnResistance(const vector<double> &input, const vector<vector<double> > &weight, MemCell& cell, bool parallelRead, double resCellAccess) {
+	vector<double> resistance;
+	vector<double> conductance;
+	double columnG = 0;
+	for (int j=0; j<weight[0].size(); j++) {
+		int activatedRow = 0;
+		columnG = 0;
+		for (int i=0; i<weight.size(); i++) {
+			// eNVM
+			double totalWireResistance;
+			// if (cell.accessType == CMOS_access) {
+			totalWireResistance = (double) 1.0/weight[i][j] + (j + 1) * param->wireResistanceRow + (weight.size() - i) * param->wireResistanceCol + cell.resistanceAccess;
+			// } 
+			if ((int) input[i] == 1) {
+				columnG += (double) 1.0/totalWireResistance;
+				activatedRow += 1 ;
+			} else {
+				columnG += 0;
+			}
+		}
+		
+		// if (cell.memCellType == Type::RRAM || cell.memCellType == Type::FeFET) {
+		if (!parallelRead) {  
+			conductance.push_back((double) columnG/activatedRow);
+		} else {
+			conductance.push_back(columnG);
+		}
+	}
+	// covert conductance to resistance
+	for (int i=0; i<weight[0].size(); i++) {
+		resistance.push_back((double) 1.0/conductance[i]);
+	}
+		
+	return resistance;
+	resistance.clear();
+} 
+
+vector<double> GetRowResistance(const vector<double> &input, const vector<vector<double> > &weight, MemCell& cell, bool parallelRead, double resCellAccess) {
+	vector<double> resistance;
+	vector<double> conductance;
+	double rowG = 0; 
+	double totalWireResistance;
+	
+	for (int i=0; i<weight.size(); i++) {
+		int activatedCol = ceil(weight[0].size()/2);  // assume 50% of the input vector is 1
+		rowG = 0;
+		for (int j=0; j<weight[0].size(); j++) {
+			// eNVM
+			// if (cell.accessType == CMOS_access) {
+			totalWireResistance = (double) 1.0/weight[i][j] + (i + 1) * param->wireResistanceRow + (weight[0].size() - j) * param->wireResistanceCol + cell.resistanceAccess;
+			// }
+		}
+		rowG = (double) 1.0/totalWireResistance * activatedCol;
+		
+		// if (cell.memCellType == Type::RRAM || cell.memCellType == Type::FeFET) {
+		if (!parallelRead) {  
+			conductance.push_back((double) rowG/activatedCol);
+		} else {
+			conductance.push_back(rowG);
+		}
+	}
+	// covert conductance to resistance
+	for (int i=0; i<weight.size(); i++) {
+		resistance.push_back((double) 1.0/conductance[i]);
+		
+	}
+		
+	return resistance;
+	resistance.clear();
+} 
     /*************************************************** Function ***************************************************/

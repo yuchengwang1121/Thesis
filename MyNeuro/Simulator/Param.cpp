@@ -10,7 +10,7 @@
 #include <chrono>
 #include <algorithm>
 #include "math.h"
-#include "Param.h"
+#include "../headerfile/Param.h"
 
 using namespace std;
 
@@ -52,7 +52,7 @@ Param::Param() {
 	reLu = true;                // false: sigmoid
 								// true: reLu
 	
-	SARADC = false;              // false: MLSA
+	SARADC = true;              // false: MLSA
 	                            // true: sar ADC
 	currentMode = true;         // false: MLSA use VSA
 	                            // true: MLSA use CSA
@@ -173,16 +173,8 @@ Param::Param() {
 	
 	/*** initialize operationMode as default ***/
 	conventionalParallel = 0;
-	conventionalSequential = 0;
-	BNNparallelMode = 0;                
-	BNNsequentialMode = 0;              
-	XNORsequentialMode = 0;          
-	XNORparallelMode = 0;         
+	conventionalSequential = 0;      
 	switch(operationmode) {
-		case 6:	    XNORparallelMode = 1;               break;     
-		case 5:	    XNORsequentialMode = 1;             break;     
-		case 4:	    BNNparallelMode = 1;                break;     
-		case 3:	    BNNsequentialMode = 1;              break;     
 		case 2:	    conventionalParallel = 1;           break;     
 		case 1:	    conventionalSequential = 1;         break;     
 		case -1:	break;
@@ -191,7 +183,7 @@ Param::Param() {
 	
 	/*** parallel read ***/
 	parallelRead = 0;
-	if(conventionalParallel || BNNparallelMode || XNORparallelMode) {
+	if(conventionalParallel) {
 		parallelRead = 1;
 	} else {
 		parallelRead = 0;

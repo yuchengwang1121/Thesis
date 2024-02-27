@@ -1,0 +1,1 @@
+./Simulator/main 0 ./Simulator/Network.csv 5 5 ./data/Weight.csv ./data/TransSegIn.csv ./data/SegIn.csv ./data/SegIn.csv ./data/Soft.csv

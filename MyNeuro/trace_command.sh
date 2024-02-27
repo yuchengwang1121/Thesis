@@ -1,1 +1,0 @@
-../Simulator/main 0 ../Simulator/NetWork.csv 8 8 ./data/weight.csv ./data/weight.csv ./data/input.csv

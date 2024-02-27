@@ -11,19 +11,13 @@
 #include "Adder.h"
 #include "RowDecoder.h"
 #include "Mux.h"
-#include "WLDecoderOutput.h"
 #include "DFF.h"
-#include "DeMux.h"
 #include "Precharger.h"
-#include "SenseAmp.h"
-#include "DecoderDriver.h"
 #include "SRAMWriteDriver.h"
-#include "ReadCircuit.h"
 #include "SwitchMatrix.h"
 #include "ShiftAdd.h"
 #include "WLNewDecoderDriver.h"
 #include "NewSwitchMatrix.h"
-#include "CurrentSenseAmp.h"
 #include "MultilevelSenseAmp.h"
 #include "MultilevelSAEncoder.h"
 #include "SarADC.h"
@@ -120,17 +114,13 @@ public:
 
 	/* Circuit modules */
 	RowDecoder                   wlDecoder;
-	DecoderDriver                wlDecoderDriver;
 	WLNewDecoderDriver           wlNewDecoderDriver;
-	SwitchMatrix                 wlSwitchMatrix;
 	NewSwitchMatrix              wlNewSwitchMatrix;
 	SwitchMatrix                 slSwitchMatrix;
 	Mux                          mux;
 	RowDecoder                   muxDecoder;
 	Precharger                   precharger;
-	SenseAmp                     senseAmp;
 	SRAMWriteDriver              sramWriteDriver;
-	CurrentSenseAmp              rowCurrentSenseAmp;
 	DFF                          dff;
 	Adder                        adder;
 	MultilevelSenseAmp           multilevelSenseAmp;
@@ -138,22 +128,6 @@ public:
 	SarADC                       sarADC;
 	ShiftAdd                     shiftAddInput;
 	ShiftAdd                     shiftAddWeight;
-	/* Circuit modules for Transpose (BP) */
-	RowDecoder                   wlDecoderBP;
-	SwitchMatrix                 wlSwitchMatrixBP;
-	Precharger                   prechargerBP;
-	SenseAmp                     senseAmpBP;
-	SRAMWriteDriver              sramWriteDriverBP;
-	Mux                          muxBP;
-	RowDecoder                   muxDecoderBP;
-	CurrentSenseAmp              rowCurrentSenseAmpBP;
-	DFF                          dffBP;
-	Adder                        adderBP;
-	MultilevelSenseAmp           multilevelSenseAmpBP;
-	MultilevelSAEncoder          multilevelSAEncoderBP;
-	SarADC                       sarADCBP;
-	ShiftAdd               	     shiftAddBPInput;
-	ShiftAdd                     shiftAddBPWeight;
 };
 
 #endif /* SUBARRAY_H_ */
