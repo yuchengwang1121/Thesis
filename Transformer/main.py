@@ -10,10 +10,10 @@ from timeit import default_timer as timer
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
 # import from other python file
-from mask import create_mask
-from translate import translate
-from seq2seq import Seq2SeqTransformer
-from collation import tensor_transform, sequential_transforms
+from Mask import create_masks
+from Model import Transformer, get_model
+from Mask import create_masks
+from Translate import translate_sentence
 
 """
 multi30k generate and token_transform
@@ -65,21 +65,17 @@ torch.manual_seed(0)
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 SRC_VOCAB_SIZE = len(vocab_transform[SRC_LANGUAGE])
 TGT_VOCAB_SIZE = len(vocab_transform[TGT_LANGUAGE])
-EMB_SIZE = 128
+D_MODEL = 128
 NHEAD = 8
 FFN_HID_DIM = 128
 BATCH_SIZE = 32
-NUM_ENCODER_LAYERS = 3
-NUM_DECODER_LAYERS = 3
+N_LAYERS = 3
+DROPOUT = 0.1
+PreTrain = None     # Pretrain if trained
 
-transformer = Seq2SeqTransformer(NUM_ENCODER_LAYERS, NUM_DECODER_LAYERS, EMB_SIZE,
-                                 NHEAD, SRC_VOCAB_SIZE, TGT_VOCAB_SIZE, FFN_HID_DIM)
+model = get_model(D_MODEL, N_LAYERS, NHEAD, DROPOUT, SRC_VOCAB_SIZE, TGT_VOCAB_SIZE, PreTrain)
 
-for p in transformer.parameters():
-    if p.dim() > 1:
-        nn.init.xavier_uniform_(p)
-
-transformer = transformer.to(DEVICE)
+transformer = model.to(DEVICE)
 
 loss_fn = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX)
 
@@ -117,7 +113,7 @@ def train_epoch(model, optimizer):
         tgt = tgt.to(DEVICE)
         tgt_input = tgt[:-1, :]
 
-        src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(src, tgt_input, device=DEVICE, pad_idx=PAD_IDX)
+        src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_masks(src, tgt_input, device=DEVICE, pad_idx=PAD_IDX)
 
         logits = model(src, tgt_input, src_mask, tgt_mask,src_padding_mask, tgt_padding_mask, src_padding_mask)
 
@@ -148,7 +144,7 @@ def evaluate(model):
 
         tgt_input = tgt[:-1, :]
 
-        src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(src, tgt_input, device=DEVICE, pad_idx=PAD_IDX)
+        src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_masks(src, tgt_input, device=DEVICE, pad_idx=PAD_IDX)
 
         logits = model(src, tgt_input, src_mask, tgt_mask,src_padding_mask, tgt_padding_mask, src_padding_mask)
 
@@ -162,25 +158,25 @@ def evaluate(model):
 Run train & eval
 """
 temp_loss = 999
-NUM_EPOCHS = 18
+NUM_EPOCHS = 20
 
-# for epoch in range(1, NUM_EPOCHS+1):
-#     start_time = timer()
-#     train_loss = train_epoch(transformer, optimizer)
-#     end_time = timer()
-#     val_loss = evaluate(transformer)
-#     if(val_loss < temp_loss):
-#         temp_loss = val_loss
-#         torch.save(transformer,"../modelpara.pt")
-#     print((f"Epoch: {epoch}, Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}, "f"Epoch time = {(end_time - start_time):.3f}s"))
-
+for epoch in range(1, NUM_EPOCHS+1):
+    start_time = timer()
+    train_loss = train_epoch(transformer, optimizer)
+    end_time = timer()
+    val_loss = evaluate(transformer)
+    if(val_loss < temp_loss):
+        temp_loss = val_loss
+        torch.save(model.state_dict(), 'Pretrain/model_weights.pt')
+    print((f"Epoch: {epoch}, Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}, "f"Epoch time = {(end_time - start_time):.3f}s"))
 
 """
 Load module & write into .csv file
 """
-WRITE_INPUT = True
-input_string = "Zwei junge weiße Männer sind im, Freien in der Nähe vieler Büsche."
-pre_transformer = torch.load('../modelpara.pt')
+# PreTrain = "Pretrain"
+# WRITE_INPUT = True
+# input_string = "Zwei junge weiße Männer sind im, Freien in der Nähe vieler Büsche."
+# pre_transformer = get_model(D_MODEL, N_LAYERS, NHEAD, DROPOUT, SRC_VOCAB_SIZE, TGT_VOCAB_SIZE, PreTrain)
 
 ### write structure into .txt
 # f = open("Model_Structure.txt", 'w')
@@ -234,14 +230,10 @@ pre_transformer = torch.load('../modelpara.pt')
 # print(f.shape)
 # filename = "../MyNeuro/data/TransSegIn.csv"
 # np.savetxt(filename, f , delimiter=",",fmt='%10.5f')
-soft = np.eye(16)
-filename = "../MyNeuro/data/ReSoft.csv"
-np.savetxt(filename, soft , delimiter=",",fmt='%10.5f')
 """
 Translate
 """
-print("The input string is : ", input_string)
-# Two young, White males are outside near many bushes.
-print("The output string is : ", translate(pre_transformer, input_string , text_transform = text_transform,
-                vocab_transform=vocab_transform, device=DEVICE, src_lan=SRC_LANGUAGE,
-                tgt_lan=TGT_LANGUAGE ,eos_idx=EOS_IDX, bos_idx=BOS_IDX,write_input=WRITE_INPUT))
+# print("The input string is : ", input_string)
+# # Two young, White males are outside near many bushes.
+# print("The output string is : ", translate_sentence(input_string, pre_transformer, 
+#         SRC = text_transform[SRC_LANGUAGE], TGT = text_transform[TGT_LANGUAGE], devide=DEVICE))
