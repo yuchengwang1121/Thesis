@@ -18,7 +18,7 @@ class Encoder(nn.Module):
         self.layers = get_clones(EncoderLayer(d_model, heads, dropout), N)
         self.norm = Norm(d_model)
     def forward(self, src, mask):
-        i_filename = "./Data/Input"
+        i_filename = "../Data/Input.csv"
         x = self.embed(src)
         x = self.pe(x)
         print("Writing the PE input in ", i_filename, " with size ", x.size()[1], " * ", x.size()[2])
