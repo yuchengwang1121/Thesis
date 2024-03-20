@@ -20,7 +20,8 @@
 #include "../headerfile/DFF.h"
 
 using namespace std;
-SubArray *subArray;
+SubArray *CAM;
+SubArray *LUT;
 
 int main(int argc, char *argv[])
 {
@@ -71,7 +72,6 @@ int main(int argc, char *argv[])
     /******************************************************** Initialize ********************************************************/
     cout << "------------------------------ FloorPlan --------------------------------" << endl;
     cout << endl;
-    cout << "User-defined SubArray Size: " << param->numRowSubArray << "x" << param->numColSubArray << endl;
     
 	/*** circuit level parameters ***/
 	cell.memCellType = Type::RRAM;
@@ -85,7 +85,8 @@ int main(int argc, char *argv[])
 	}
 	
     /*** build object from each class ***/
-	subArray 			= new SubArray(inputParameter, tech, cell);
+	CAM 			= new SubArray(inputParameter, tech, cell);
+	LUT 			= new SubArray(inputParameter, tech, cell);
 	
     /*** RRAM cell's property ***/ 
 	cell.resistanceOn = param->resistanceOn;	                                // Ron resistance at Vr in the reported measurement data (need to recalculate below if considering the nonlinearity)
@@ -109,53 +110,95 @@ int main(int argc, char *argv[])
     cell.heightInFeatureSize = param->heightInFeatureSize1T1R;         // Cell height in feature size
 	cell.widthInFeatureSize = param->widthInFeatureSize1T1R;
 
-    /*** subArray's property ***/         
-	subArray->conventionalParallel = param->conventionalParallel;                  
-	subArray->conventionalSequential = param->conventionalSequential;   
-	subArray->parallelBP = param->parallelBP;	
-	subArray->numRow = param->numRowSubArray;
-	subArray->numCol = param->numRowSubArray;
-	subArray->levelOutput = param->levelOutput;
-	subArray->levelOutputBP = param->levelOutputAG;
-	subArray->numColMuxed = param->numColMuxed;               // How many columns share 1 read circuit (for neuro mode with analog RRAM) or 1 S/A (for memory mode or neuro mode with digital RRAM)
-	subArray->numRowMuxedBP = param->numRowMuxedAG;
-    subArray->clkFreq = param->clkFreq;                       // Clock frequency
-	subArray->relaxArrayCellHeight = param->relaxArrayCellHeight;
-	subArray->relaxArrayCellWidth = param->relaxArrayCellWidth;
-	subArray->numReadPulse = param->numBitInput;
-	subArray->avgWeightBit = param->cellBit;
-	subArray->numCellPerSynapse = param->numColPerSynapse;
-	subArray->numReadPulseBP = 8;
-	subArray->activityBPColRead = 0.5;
-	subArray->SARADC = param->SARADC;
-	subArray->currentMode = param->currentMode;
-	subArray->spikingMode = NONSPIKING;
+    /*** CAM's property ***/
+	int CAMnumRow = 64;		//each vector has 64 bit
+	int CAMnumCol = 64;		//hit vector from -20 ~ 43
+	int CAMclk    = 15e9;	// <=== Modify When Change Structure===>
+
+	CAM->conventionalParallel = param->conventionalParallel;                  
+	CAM->conventionalSequential = param->conventionalSequential;   
+	CAM->parallelBP = param->parallelBP;	
+	CAM->numRow = CAMnumRow;
+	CAM->numCol = CAMnumCol;
+	CAM->levelOutput = param->levelOutput;
+	CAM->levelOutputBP = param->levelOutputAG;
+	CAM->numColMuxed = param->numColMuxed;               // How many columns share 1 read circuit (for neuro mode with analog RRAM) or 1 S/A (for memory mode or neuro mode with digital RRAM)
+	CAM->numRowMuxedBP = param->numRowMuxedAG;
+    CAM->clkFreq = CAMclk;                       // Clock frequency
+	CAM->relaxArrayCellHeight = param->relaxArrayCellHeight;
+	CAM->relaxArrayCellWidth = param->relaxArrayCellWidth;
+	CAM->numReadPulse = param->numBitInput;
+	CAM->avgWeightBit = param->cellBit;
+	CAM->numCellPerSynapse = param->numColPerSynapse;
+	CAM->numReadPulseBP = 8;
+	CAM->activityBPColRead = 0.5;
+	CAM->SARADC = param->SARADC;
+	CAM->currentMode = param->currentMode;
+	CAM->spikingMode = NONSPIKING;
 	
-	int numRow = param->numRowSubArray;
-	int numCol = param->numColSubArray;
 	
-	if (subArray->numColMuxed > numCol) {                      // Set the upperbound of numColMuxed
-		subArray->numColMuxed = numCol;
+	if (CAM->numColMuxed > CAMnumCol) {                      // Set the upperbound of numColMuxed
+		CAM->numColMuxed = CAMnumCol;
 	}
 
-	subArray->numReadCellPerOperationFPGA = numCol;	           // Not relevant for IMEC
-	subArray->numWriteCellPerOperationFPGA = numCol;	       // Not relevant for IMEC
-	subArray->numReadCellPerOperationMemory = numCol;          // Define # of SRAM read cells in memory mode because SRAM does not have S/A sharing (not relevant for IMEC)
-	subArray->numWriteCellPerOperationMemory = numCol/8;       // # of write cells per operation in SRAM memory or the memory mode of multifunctional memory (not relevant for IMEC)
-	subArray->numReadCellPerOperationNeuro = numCol;           // # of SRAM read cells in neuromorphic mode
-	subArray->numWriteCellPerOperationNeuro = numCol;	       // For SRAM or analog RRAM in neuro mode
-    subArray->maxNumWritePulse = MAX(cell.maxNumLevelLTP, cell.maxNumLevelLTD);
+	CAM->numReadCellPerOperationFPGA = CAMnumCol;	           // Not relevant for IMEC
+	CAM->numWriteCellPerOperationFPGA = CAMnumCol;	       // Not relevant for IMEC
+	CAM->numReadCellPerOperationMemory = CAMnumCol;          // Define # of SRAM read cells in memory mode because SRAM does not have S/A sharing (not relevant for IMEC)
+	CAM->numWriteCellPerOperationMemory = CAMnumCol/8;       // # of write cells per operation in SRAM memory or the memory mode of multifunctional memory (not relevant for IMEC)
+	CAM->numReadCellPerOperationNeuro = CAMnumCol;           // # of SRAM read cells in neuromorphic mode
+	CAM->numWriteCellPerOperationNeuro = CAMnumCol;	       // For SRAM or analog RRAM in neuro mode
+    CAM->maxNumWritePulse = MAX(cell.maxNumLevelLTP, cell.maxNumLevelLTD);
+
+	/*** LUT's property ***/
+	int LUTnumRow = 16;		//from -15 ~ 0
+	int LUTnumCol = 32;		//use 32bit ti reprecent precision 8 LUT
+	int LUTclk    = 15e9;	// <=== Modify When Change Structure===>
+
+	LUT->conventionalParallel = param->conventionalParallel;                  
+	LUT->conventionalSequential = param->conventionalSequential;   
+	LUT->parallelBP = param->parallelBP;	
+	LUT->numRow = LUTnumRow;
+	LUT->numCol = LUTnumCol;
+	LUT->levelOutput = param->levelOutput;
+	LUT->levelOutputBP = param->levelOutputAG;
+	LUT->numColMuxed = param->numColMuxed;               // How many columns share 1 read circuit (for neuro mode with analog RRAM) or 1 S/A (for memory mode or neuro mode with digital RRAM)
+	LUT->numRowMuxedBP = param->numRowMuxedAG;
+    LUT->clkFreq = LUTclk;                       // Clock frequency
+	LUT->relaxArrayCellHeight = param->relaxArrayCellHeight;
+	LUT->relaxArrayCellWidth = param->relaxArrayCellWidth;
+	LUT->numReadPulse = param->numBitInput;
+	LUT->avgWeightBit = param->cellBit;
+	LUT->numCellPerSynapse = param->numColPerSynapse;
+	LUT->numReadPulseBP = 8;
+	LUT->activityBPColRead = 0.5;
+	LUT->SARADC = param->SARADC;
+	LUT->currentMode = param->currentMode;
+	LUT->spikingMode = NONSPIKING;
+	
+	
+	if (LUT->numColMuxed > LUTnumCol) {                      // Set the upperbound of numColMuxed
+		LUT->numColMuxed = LUTnumCol;
+	}
+
+	LUT->numReadCellPerOperationFPGA = LUTnumCol;	           // Not relevant for IMEC
+	LUT->numWriteCellPerOperationFPGA = LUTnumCol;	       // Not relevant for IMEC
+	LUT->numReadCellPerOperationMemory = LUTnumCol;          // Define # of SRAM read cells in memory mode because SRAM does not have S/A sharing (not relevant for IMEC)
+	LUT->numWriteCellPerOperationMemory = LUTnumCol/8;       // # of write cells per operation in SRAM memory or the memory mode of multifunctional memory (not relevant for IMEC)
+	LUT->numReadCellPerOperationNeuro = LUTnumCol;           // # of SRAM read cells in neuromorphic mode
+	LUT->numWriteCellPerOperationNeuro = LUTnumCol;	       // For SRAM or analog RRAM in neuro mode
+    LUT->maxNumWritePulse = MAX(cell.maxNumLevelLTP, cell.maxNumLevelLTD);
 
 	/*** User defined num of elements ***/
-	int numSubArrayRow = 1;		// The number of subarray's row
-	int numSubArrayCol = 1; 	// The number of subarray's col
-	int numbusRow = 1;			// The number of bus's in row
-	int numbusCol = 1; 			// The number of bus's in col
+	int CAMnumSubArrayRow = 2;		// The number of subarray's row
+	int CAMnumSubArrayCol = 1; 	// The number of subarray's col
+	int LUTnumSubArrayRow = 2;		// The number of subarray's row
+	int LUTnumSubArrayCol = 1; 	// The number of subarray's col
 	/*** initialize modules ***/
-	subArray->Initialize(numRow, numCol, param->unitLengthWireResistance);        // initialize subArray
+	CAM->Initialize(CAMnumRow, CAMnumCol, param->unitLengthWireResistance);        // initialize CAM
+	LUT->Initialize(LUTnumRow, LUTnumCol, param->unitLengthWireResistance);        // initialize LUT
 
-    cout << "number of subarray's row is " << numSubArrayRow << " with number of subarray's col is " << numSubArrayCol << endl;
-	cout << "number of bus's row is " << numbusRow << " with number of bus's col is " << numbusCol << endl;
+    cout << "number of CAM subarray's row is " << CAMnumSubArrayRow << " with number of subarray's col is " << CAMnumSubArrayCol << endl;
+	cout << "number of LUT subarray's row is " << LUTnumSubArrayRow << " with number of subarray's col is " << LUTnumSubArrayCol << endl;
     cout << endl;
     cout << "---------------------------- FloorPlan Done ------------------------------" << endl;
     cout << endl;
@@ -163,32 +206,50 @@ int main(int argc, char *argv[])
     /******************************************************** Initialize ********************************************************/
 
     /****************************************************** CalculateArea *******************************************************/
-    double Area, AreaArray, AreaADC, AreaAccum, AreaOther;
-	double height = 0;
-	double width = 0;
+    double CAMArea, CAMAreaArray, CAMAreaADC, CAMAreaAccum, CAMAreaOther;
+	double LUTArea, LUTAreaArray, LUTAreaADC, LUTAreaAccum, LUTAreaOther;
+	double heightCAM, heightLUT = 0;
+	double widthCAM, widthLUT= 0;
 	double busarea = 0;
 	double bufferarea = 0;
-	double Totalarea = 0;
+	double TotalareaCAM, TotalareaLUT = 0;
 	double widthArray = 0;
-	vector<double> areaResults;
+	vector<double> CAMareaResults, LUTareaResults;
 	
-	subArray->CalculateArea();
-    Totalarea = subArray->usedArea * (numSubArrayRow*numSubArrayCol) + bufferarea + busarea;
+	CAM->CalculateArea();
+    LUT->CalculateArea();
+    TotalareaCAM = CAM->usedArea * (CAMnumSubArrayRow*CAMnumSubArrayCol);
+	TotalareaLUT = LUT->usedArea * (LUTnumSubArrayRow*LUTnumSubArrayCol);
+
     
-    height = sqrt(Totalarea);
-    width = Totalarea/(height);
-    
-    areaResults.push_back(Totalarea);
-    areaResults.push_back(subArray->areaADC*(numSubArrayRow*numSubArrayCol));
-    areaResults.push_back(subArray->areaAccum*(numSubArrayRow*numSubArrayCol));
-    areaResults.push_back(subArray->areaOther*(numSubArrayRow*numSubArrayCol));
-    areaResults.push_back(subArray->areaArray*(numSubArrayRow*numSubArrayCol));
+    heightCAM = sqrt(TotalareaCAM);
+    widthCAM = TotalareaCAM/(heightCAM);
+	heightLUT = sqrt(TotalareaLUT);
+    widthLUT = TotalareaCAM/(heightLUT);
+
+    CAMareaResults.push_back(TotalareaCAM);
+    CAMareaResults.push_back(CAM->areaADC*(CAMnumSubArrayRow*CAMnumSubArrayCol));
+    CAMareaResults.push_back(CAM->areaAccum*(CAMnumSubArrayRow*CAMnumSubArrayCol));
+    CAMareaResults.push_back(CAM->areaOther*(CAMnumSubArrayRow*CAMnumSubArrayCol));
+    CAMareaResults.push_back(CAM->areaArray*(CAMnumSubArrayRow*CAMnumSubArrayCol));
 	
-    Area        = areaResults[0];
-    AreaArray   = areaResults[1];
-    AreaADC     = areaResults[2];
-    AreaAccum   = areaResults[3];
-    AreaOther   = areaResults[4];
+    CAMArea        = CAMareaResults[0];
+    CAMAreaArray   = CAMareaResults[1];
+    CAMAreaADC     = CAMareaResults[2];
+    CAMAreaAccum   = CAMareaResults[3];
+    CAMAreaOther   = CAMareaResults[4];
+
+	LUTareaResults.push_back(TotalareaLUT);
+    LUTareaResults.push_back(LUT->areaADC*(LUTnumSubArrayRow*LUTnumSubArrayCol));
+    LUTareaResults.push_back(LUT->areaAccum*(LUTnumSubArrayRow*LUTnumSubArrayCol));
+    LUTareaResults.push_back(LUT->areaOther*(LUTnumSubArrayRow*LUTnumSubArrayCol));
+    LUTareaResults.push_back(LUT->areaArray*(LUTnumSubArrayRow*LUTnumSubArrayCol));
+	
+    LUTArea        = LUTareaResults[0];
+    LUTAreaArray   = LUTareaResults[1];
+    LUTAreaADC     = LUTareaResults[2];
+    LUTAreaAccum   = LUTareaResults[3];
+    LUTAreaOther   = LUTareaResults[4];
 
     cout << "-------------------------------------- Hardware Performance --------------------------------------" << endl;
 	
@@ -199,8 +260,14 @@ int main(int argc, char *argv[])
     breakdownfile.open(breakdownfile_name);
     if (breakdownfile.is_open()){
         // firstly save the area results to file
-        breakdownfile << "Total Area(m^2), ADC Area(m^2), Accumulation Area(m^2), Other Logic&Storage Area(m^2), Total CIM (FW+AG) Area (m^2)" << endl;
-        breakdownfile << Area << "," << AreaADC << "," << AreaAccum << "," << AreaOther << "," << AreaArray << endl;
+        breakdownfile << "CAM Area(m^2), ADC Area(m^2), Accumulation Area(m^2), Other Logic&Storage Area(m^2), CAM CIM (FW+AG) Area (m^2)" << endl;
+        breakdownfile << CAMArea << "," << CAMAreaADC << "," << CAMAreaAccum << "," << CAMAreaOther << "," << CAMAreaArray << endl;
+		breakdownfile << "LUT Area(m^2), ADC Area(m^2), Accumulation Area(m^2), Other Logic&Storage Area(m^2), LUT CIM (FW+AG) Area (m^2)" << endl;
+        breakdownfile << LUTArea << "," << LUTAreaADC << "," << LUTAreaAccum << "," << LUTAreaOther << "," << LUTAreaArray << endl;
+		breakdownfile << "Total Area(m^2), ADC Area(m^2), Accumulation Area(m^2), Other Logic&Storage Area(m^2), Total CIM (FW+AG) Area (m^2)" << endl;
+        breakdownfile << CAMArea + LUTArea << "," << CAMAreaADC + LUTAreaADC << "," 
+					  << CAMAreaAccum + LUTAreaAccum << "," << CAMAreaOther + LUTAreaOther << ","
+					  << CAMAreaArray + LUTAreaArray << endl;
         breakdownfile << endl;
     }
     else
@@ -210,25 +277,47 @@ int main(int argc, char *argv[])
     /****************************************************** CalculateArea *******************************************************/
 
     /*************************************************** CalculatePerformance ***************************************************/
+	bool STAR = false;	// <=== Modify When Change Structure ===>
+
     double numComputation = 0;
 	numComputation = 2*(netStructure[0][0] * netStructure[0][1] * netStructure[0][2] * netStructure[0][3] * netStructure[0][4] * netStructure[0][5]);
     /*** define how many subArray are used to map the whole layer ***/
-	double SWReadLatency, SWReadDynamicEnergy, SWLeakage, SWLatencyADC, SWLatencyAccum, SWLatencyOther, SWEnergyADC, SWEnergyAccum, SWEnergyOther;
-	double STReadLatency, STReadDynamicEnergy, STLeakage, STLatencyADC, STLatencyAccum, STLatencyOther, STEnergyADC, STEnergyAccum, STEnergyOther;
-	double SSReadLatency, SSReadDynamicEnergy, SSLeakage, SSLatencyADC, SSLatencyAccum, SSLatencyOther, SSEnergyADC, SSEnergyAccum, SSEnergyOther;
+	double ICReadLatency, ICReadDynamicEnergy, ICLeakage, ICLatencyADC, ICLatencyAccum, ICLatencyOther, ICEnergyADC, ICEnergyAccum, ICEnergyOther;
+	double SLReadLatency, SLReadDynamicEnergy, SLLeakage, SLLatencyADC, SLLatencyAccum, SLLatencyOther, SLEnergyADC, SLEnergyAccum, SLEnergyOther;
+	double CVReadLatency, CVReadDynamicEnergy, CVLeakage, CVLatencyADC, CVLatencyAccum, CVLatencyOther, CVEnergyADC, CVEnergyAccum, CVEnergyOther;
 	double ReadLatency, ReadDynamicEnergy, Leakage, LatencyADC, LatencyOther, LatencyAccum, EnergyADC, EnergyAccum, EnergyOther;
 	double BufferLatency, LeakageEnergy, BufferDynamicEnergy, BusLatency, BusDynamicEnergy;
 
-	// Segment * Weight's P&L  
-	SWReadLatency		=0;
-	SWReadDynamicEnergy	=0;
-	SWLeakage			=0;
-	SWLatencyADC		=0;
-	SWLatencyAccum		=0;
-	SWLatencyOther		=0;
-	SWEnergyADC			=0;
-	SWEnergyAccum		=0;
-	SWEnergyOther		=0;
+	//Input * CAM
+	ICReadLatency		=0;
+	ICReadDynamicEnergy	=0;
+	ICLeakage			=0;
+	ICLatencyADC		=0;
+	ICLatencyAccum		=0;
+	ICLatencyOther		=0;
+	ICEnergyADC			=0;
+	ICEnergyAccum		=0;
+	ICEnergyOther		=0;
+	//Sub * LUT
+	SLReadLatency		=0;
+	SLReadDynamicEnergy	=0;
+	SLLeakage			=0;
+	SLLatencyADC		=0;
+	SLLatencyAccum		=0;
+	SLLatencyOther		=0;
+	SLEnergyADC			=0;
+	SLEnergyAccum		=0;
+	SLEnergyOther		=0;
+	//Counter * LUT
+	CVReadLatency		=0;
+	CVReadDynamicEnergy	=0;
+	CVLeakage			=0;
+	CVLatencyADC		=0;
+	CVLatencyAccum		=0;
+	CVLatencyOther		=0;
+	CVEnergyADC			=0;
+	CVEnergyAccum		=0;
+	CVEnergyOther		=0;
 	//Other
 	BufferLatency 		= 0;
 	BufferDynamicEnergy = 0;
@@ -245,89 +334,175 @@ int main(int argc, char *argv[])
 	EnergyAccum			= 0;
 	EnergyOther			= 0;
 
-	/*** get weight matrix file Size ***/
-    // I = W*L*D  = 1*16*128  = netStructure[0][0]*netStructure[0][1]*netStructure[0][2]
-    // K = K*K'*D = 1*1*128 = netStructure[0][3]*netStructure[0][4]*netStructure[0][5]
-	int weightMatrixRow = netStructure[0][2]*netStructure[0][3]*netStructure[0][4];
-	int weightMatrixCol = netStructure[0][5];
-
     // weight matrix is further partitioned inside PE (among subArray) --> no duplicated
-    int numRowMatrix = min(param->numRowSubArray, weightMatrixRow);
-    int numColMatrix = min(param->numColSubArray, weightMatrixCol);
-	int numInVector = (netStructure[0][0]-netStructure[0][3]+1)/netStructure[0][7]*(netStructure[0][1]-netStructure[0][4]+1)/netStructure[0][7];
-	
+	int numInVector = STAR ? 16 : 4;
+
 	// load in whole file 
-	vector<vector<double>> weightMemory;
-	vector<vector<double>> inputVector;
+	vector<vector<double>> CAMMemory,LUTMemory;
+	vector<vector<double>> CAMinputVector, LUTinputVector;
 	
-	weightMemory = LoadInWeightData(argv[5], 1, 1, param->maxConductance, param->minConductance);
-	inputVector = LoadInInputData(argv[6]);
+	CAMMemory = LoadInWeightData(argv[5], 1, 1, param->maxConductance, param->minConductance);
+	LUTMemory = LoadInWeightData(argv[6], 1, 1, param->maxConductance, param->minConductance);
+	CAMinputVector = LoadInInputData(argv[7]);
+	LUTinputVector = LoadInInputData(argv[8]);
 
     /*** assign weight and input to specific subArray ***/
-    vector<vector<double>> subArrayWeight;
-	vector<vector<double>> subArrayInput;
+    vector<vector<double>> subCAMMemory, subLUTMemory;
+	vector<vector<double>> CAMArrayInput, VMMArrayInput;
 
-    subArrayWeight = CopySubArray(weightMemory, 0, 0, numRowMatrix, numColMatrix);	//128*128
-	subArrayInput = CopySubInput(inputVector, 0, numInVector, numRowMatrix);			//16*128
+    subCAMMemory = CopySubArray(CAMMemory, 0, 0, CAMnumRow, CAMnumCol);		//64*64
+	subLUTMemory = CopySubArray(LUTMemory, 0, 0, LUTnumRow, LUTnumCol);		//16*32
+	CAMArrayInput = CopySubInput(CAMinputVector, 0, numInVector, CAMnumRow);//16*64
+	VMMArrayInput = CopySubInput(LUTinputVector, 0, 1, CAMnumRow);			//1*64
 	// cout << "CopySubInput : " << endl;
 	
-    for (int k=0; k<numInVector; k++) {                 // calculate WeightsubArray through the total Segment vectors
+    for (int k=0; k<numInVector*3; k++) {	// calculate three times to FindMax & FindSub & Find SUBMV
         // cout << "k is : " << k << " with numInVector " << numInVector << endl;
-		double activityRowRead = 0;
+		double CAMactivityRowRead = 0;
         vector<double> input;
-        input = GetInputVector(subArrayInput, k, &activityRowRead);
-		subArray->activityRowRead = activityRowRead;
+        input = GetInputVector(CAMArrayInput, k, &CAMactivityRowRead);
+		CAM->activityRowRead = CAMactivityRowRead;
         int cellRange = pow(2, param->cellBit);
         if (param->parallelRead) {
-            subArray->levelOutput = param->levelOutput;               // # of levels of the multilevelSenseAmp output
+            CAM->levelOutput = param->levelOutput;               // # of levels of the multilevelSenseAmp output
         } else {
-            subArray->levelOutput = cellRange;
+            CAM->levelOutput = cellRange;
         }
         
         vector<double> columnResistance, rowResistance;
 		// cout << "columnResistance" << endl;
-        columnResistance = GetColumnResistance(input, subArrayWeight, cell, param->parallelRead, subArray->resCellAccess);
+        columnResistance = GetColumnResistance(input, subCAMMemory, cell, param->parallelRead, CAM->resCellAccess);
         // cout << "rowResistance" << endl;
-		rowResistance = GetRowResistance(input, subArrayWeight, cell, param->parallelBP, subArray->resCellAccess);
+		rowResistance = GetRowResistance(input, subCAMMemory, cell, param->parallelBP, CAM->resCellAccess);
         
 	    // cout << "CalculateLatency" << endl;
-        subArray->CalculateLatency(1e20, columnResistance, rowResistance);
+        CAM->CalculateLatency(1e20, columnResistance, rowResistance);
         // cout << "CalculatePower" << endl;
-		subArray->CalculatePower(columnResistance, rowResistance);
+		CAM->CalculatePower(columnResistance, rowResistance);
         
-        SWReadLatency = subArray->readLatency;
-        SWReadDynamicEnergy = subArray->readDynamicEnergy;
-        SWLeakage = subArray->leakage;
+        ICReadLatency += CAM->readLatency;
+        ICReadDynamicEnergy += CAM->readDynamicEnergy;
+        ICLeakage += CAM->leakage;
         
-        SWLatencyADC = subArray->readLatencyADC;
-        SWLatencyAccum = subArray->readLatencyAccum;
-        SWLatencyOther = subArray->readLatencyOther;
+        ICLatencyADC += CAM->readLatencyADC;
+        ICLatencyAccum += CAM->readLatencyAccum;
+        ICLatencyOther += CAM->readLatencyOther;
         
-        SWEnergyADC = subArray->readDynamicEnergyADC;
-        SWEnergyAccum = subArray->readDynamicEnergyAccum;
-        SWEnergyOther = subArray->readDynamicEnergyOther;
+        ICEnergyADC += CAM->readDynamicEnergyADC;
+        ICEnergyAccum += CAM->readDynamicEnergyAccum;
+        ICEnergyOther += CAM->readDynamicEnergyOther;
     }
 
-    Leakage = SWLeakage; //Weight Q,K,V & transpose I & I
-	
-	LatencyADC = SWLatencyADC;
-	LatencyOther = SWLatencyOther;
-	LatencyAccum = SWLatencyAccum;
+	for (int k=0; k<numInVector; k++) {	// calculate MV get exponential x_i-x_max
+        // cout << "k is : " << k << " with numInVector " << numInVector << endl;
+		double LUTactivityRowRead = 0;
+        vector<double> input;
+        input = GetInputVector(CAMArrayInput, k, &LUTactivityRowRead);
+		LUT->activityRowRead = LUTactivityRowRead;
+        int cellRange = pow(2, param->cellBit);
+        if (param->parallelRead) {
+            LUT->levelOutput = param->levelOutput;               // # of levels of the multilevelSenseAmp output
+        } else {
+            LUT->levelOutput = cellRange;
+        }
+        
+        vector<double> columnResistance, rowResistance;
+		// cout << "columnResistance" << endl;
+        columnResistance = GetColumnResistance(input, subLUTMemory, cell, param->parallelRead, LUT->resCellAccess);
+        // cout << "rowResistance" << endl;
+		rowResistance = GetRowResistance(input, subLUTMemory, cell, param->parallelBP, LUT->resCellAccess);
+        
+	    // cout << "CalculateLatency" << endl;
+        LUT->CalculateLatency(1e20, columnResistance, rowResistance);
+        // cout << "CalculatePower" << endl;
+		LUT->CalculatePower(columnResistance, rowResistance);
+        
+        SLReadLatency += LUT->readLatency;
+        SLReadDynamicEnergy += LUT->readDynamicEnergy;
+        SLLeakage += LUT->leakage;
+        
+        SLLatencyADC += LUT->readLatencyADC;
+        SLLatencyAccum += LUT->readLatencyAccum;
+        SLLatencyOther += LUT->readLatencyOther;
+        
+        SLEnergyADC += LUT->readDynamicEnergyADC;
+        SLEnergyAccum += LUT->readDynamicEnergyAccum;
+        SLEnergyOther += LUT->readDynamicEnergyOther;
+    }
 
-	EnergyADC = SWEnergyADC;
-	EnergyOther = SWEnergyOther;
-	EnergyAccum = SWEnergyAccum;
-    ReadLatency = SWReadLatency;
-    ReadDynamicEnergy = SWReadDynamicEnergy;
+	for (int k=0; k<1; k++) {	// calculate one counter vector * LUT get sum of exponential x_i-x_max
+        // cout << "k is : " << k << " with numInVector " << numInVector << endl;
+		double VMMactivityRowRead = 0;
+        vector<double> input;
+        input = GetInputVector(VMMArrayInput, k, &VMMactivityRowRead);
+		LUT->activityRowRead = VMMactivityRowRead;
+        int cellRange = pow(2, param->cellBit);
+        if (param->parallelRead) {
+            LUT->levelOutput = param->levelOutput;               // # of levels of the multilevelSenseAmp output
+        } else {
+            LUT->levelOutput = cellRange;
+        }
+        
+        vector<double> columnResistance, rowResistance;
+		// cout << "columnResistance" << endl;
+        columnResistance = GetColumnResistance(input, subLUTMemory, cell, param->parallelRead, LUT->resCellAccess);
+        // cout << "rowResistance" << endl;
+		rowResistance = GetRowResistance(input, subLUTMemory, cell, param->parallelBP, LUT->resCellAccess);
+        
+	    // cout << "CalculateLatency" << endl;
+        LUT->CalculateLatency(1e20, columnResistance, rowResistance);
+        // cout << "CalculatePower" << endl;
+		LUT->CalculatePower(columnResistance, rowResistance);
+        
+        CVReadLatency += LUT->readLatency;
+        CVReadDynamicEnergy += LUT->readDynamicEnergy;
+        CVLeakage += LUT->leakage;
+        
+        CVLatencyADC += LUT->readLatencyADC;
+        CVLatencyAccum += LUT->readLatencyAccum;
+        CVLatencyOther += LUT->readLatencyOther;
+        
+        CVEnergyADC += LUT->readDynamicEnergyADC;
+        CVEnergyAccum += LUT->readDynamicEnergyAccum;
+        CVEnergyOther += LUT->readDynamicEnergyOther;
+    }
+
+
+    Leakage = ICLeakage + SLLeakage; //Weight Q,K,V & transpose I & I
+	
+	LatencyADC = ICLatencyADC + SLLatencyADC + CVLatencyADC;
+	LatencyOther = ICLatencyOther + SLLatencyOther + CVLatencyOther;
+	LatencyAccum = ICLatencyAccum + SLLatencyAccum + CVLatencyAccum;
+
+	EnergyADC = ICEnergyADC + SLEnergyADC + CVEnergyADC;
+	EnergyOther = ICEnergyOther + SLEnergyOther + CVEnergyOther;
+	EnergyAccum = ICEnergyAccum + SLEnergyAccum + CVEnergyAccum;
+    ReadLatency = ICReadLatency + SLReadLatency + CVReadLatency;
+    ReadDynamicEnergy = ICReadDynamicEnergy + SLReadDynamicEnergy + CVReadDynamicEnergy;
     LeakageEnergy = Leakage * ReadLatency;
 
     cout << "------------------------------ Summary --------------------------------" << endl;
     cout << endl;
-    cout << "Area : " << Area * 1e12 << "um^2" << endl;
-    cout << "Total CIM (Forward+Activation Gradient) array : " << AreaArray * 1e12 << "um^2" << endl;
-    cout << "Total ADC (or S/As and precharger for SRAM) Area on chip : " << AreaADC * 1e12 << "um^2" << endl;
-    cout << "Total Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) on chip : " << AreaAccum * 1e12 << "um^2" << endl;
-    cout << "Other Peripheries (e.g. decoders, mux, switchmatrix, buffers, pooling and activation units) : " << AreaOther * 1e12 << "um^2" << endl;
+	cout << "---------- Area of CAM ----------" << endl;
+    cout << "Area : " << CAMArea * 1e12 << "um^2" << endl;
+    cout << "Total CIM (Forward+Activation Gradient) array : " << CAMAreaArray * 1e12 << "um^2" << endl;
+    cout << "Total ADC (or S/As and precharger for SRAM) Area on chip : " << CAMAreaADC * 1e12 << "um^2" << endl;
+    cout << "Total Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) on chip : " << CAMAreaAccum * 1e12 << "um^2" << endl;
+    cout << "Other Peripheries (e.g. decoders, mux, switchmatrix, buffers, pooling and activation units) : " << CAMAreaOther * 1e12 << "um^2" << endl;
+    cout << endl;
+	cout << "---------- Area of LUT ----------" << endl;
+    cout << "Area : " << LUTArea * 1e12 << "um^2" << endl;
+    cout << "Total CIM (Forward+Activation Gradient) array : " << LUTAreaArray * 1e12 << "um^2" << endl;
+    cout << "Total ADC (or S/As and precharger for SRAM) Area on chip : " << LUTAreaADC * 1e12 << "um^2" << endl;
+    cout << "Total Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) on chip : " << LUTAreaAccum * 1e12 << "um^2" << endl;
+    cout << "Other Peripheries (e.g. decoders, mux, switchmatrix, buffers, pooling and activation units) : " << LUTAreaOther * 1e12 << "um^2" << endl;
+    cout << endl;
+	cout << "---------- Area Summary ----------" << endl;
+    cout << "Area : " << (CAMArea + LUTArea) * 1e12 << "um^2" << endl;
+    cout << "Total CIM (Forward+Activation Gradient) array : " << (CAMAreaArray + LUTAreaArray) * 1e12 << "um^2" << endl;
+    cout << "Total ADC (or S/As and precharger for SRAM) Area on chip : " << (CAMAreaADC + LUTAreaADC) * 1e12 << "um^2" << endl;
+    cout << "Total Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) on chip : " << (CAMAreaAccum + LUTAreaAccum) * 1e12 << "um^2" << endl;
+    cout << "Other Peripheries (e.g. decoders, mux, switchmatrix, buffers, pooling and activation units) : " << (CAMAreaOther + LUTAreaOther) * 1e12 << "um^2" << endl;
     cout << endl;
     cout << "-----------------------------------Chip layer-by-layer Estimation---------------------------------" << endl;
 

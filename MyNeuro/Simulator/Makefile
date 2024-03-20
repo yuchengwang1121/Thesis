@@ -1,25 +1,25 @@
 .SECONDEXPANSION:
 
-mode = 1
+mode = 2
 
 ifeq ($(mode),1)
 	main=MyNeuro
 else ifeq ($(mode),2)
     main=Retransformer
-else
-	main=STAR
+else ifeq ($(mode),3)
+	main=Soft
 endif
 
 ifeq ($(main),MyNeuro)
     MAINS := main.cpp
 	FILTER1 := Retransformer.cpp
-	FILTER2 := Soft.cpp
+	FILTER2 := soft.cpp
 else ifeq ($(main),Retransformer)
     MAINS := Retransformer.cpp
 	FILTER1 := main.cpp
-	FILTER2 := Soft.cpp
+	FILTER2 := soft.cpp
 else
-	MAINS := Soft.cpp
+	MAINS := soft.cpp
 	FILTER1 := Retransformer.cpp
 	FILTER2 := main.cpp
 endif

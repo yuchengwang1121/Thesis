@@ -7,7 +7,9 @@ parser.add_argument('--mode', action='store',  default='MyNeuro',
 args = parser.parse_args()
 if args.mode == "Retransformer" :
     call(["/bin/bash", "./data/Retransformer.sh"])								## Print the result here
-elif args.mode == "Softmax" :
-    call(["/bin/bash", "./data/softmax.sh"])								## Print the result here
+elif args.mode == "TransSeg" :
+    call(["/bin/bash", "./data/TransSeg.sh"])								## Print the result here
+elif args.mode == "STAR" :
+    call(["/bin/bash", "./data/STAR.sh"])								## Print the result here
 else :
     call(["/bin/bash", "./data/trace_command.sh"])	

@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
 	subArray->levelOutputBP = param->levelOutputAG;
 	subArray->numColMuxed = param->numColMuxed;               // How many columns share 1 read circuit (for neuro mode with analog RRAM) or 1 S/A (for memory mode or neuro mode with digital RRAM)
 	subArray->numRowMuxedBP = param->numRowMuxedAG;
-    subArray->clkFreq = param->clkFreq;                       // Clock frequency
+    subArray->clkFreq = 15e9;                       // Clock frequency
 	subArray->relaxArrayCellHeight = param->relaxArrayCellHeight;
 	subArray->relaxArrayCellWidth = param->relaxArrayCellWidth;
 	subArray->numReadPulse = param->numBitInput;
@@ -197,14 +197,14 @@ int main(int argc, char *argv[])
 	}
 	
 	// For Buffer
-	bufferInputCM->Initialize(param->numBitInput*numRow, param->clkFreq);
-	bufferReg1->Initialize(param->numBitInput*numRow/numsegment, param->clkFreq);
-	bufferReg2->Initialize(param->numBitInput*numRow/numsegment, param->clkFreq);
-	bufferSoft->Initialize(param->numBitInput*numRow, param->clkFreq);
+	bufferInputCM->Initialize(param->numBitInput*numRow, 15e9);
+	bufferReg1->Initialize(param->numBitInput*numRow/numsegment, 15e9);
+	bufferReg2->Initialize(param->numBitInput*numRow/numsegment, 15e9);
+	bufferSoft->Initialize(param->numBitInput*numRow, 15e9);
 	if (param->parallelRead) {
-		bufferOutputCM->Initialize((numCol/param->numColMuxed)*(log2((double)param->levelOutput)+param->numBitInput+param->numColPerSynapse+adderTreeCM->numStage), param->clkFreq);
+		bufferOutputCM->Initialize((numCol/param->numColMuxed)*(log2((double)param->levelOutput)+param->numBitInput+param->numColPerSynapse+adderTreeCM->numStage), 15e9);
 	} else {
-		bufferOutputCM->Initialize((numCol/param->numColMuxed)*((log2((double)numRow)+param->cellBit-1)+param->numBitInput+param->numColPerSynapse+adderTreeCM->numStage), param->clkFreq);
+		bufferOutputCM->Initialize((numCol/param->numColMuxed)*((log2((double)numRow)+param->cellBit-1)+param->numBitInput+param->numColPerSynapse+adderTreeCM->numStage), 15e9);
 	}
 	
 	// For Bus

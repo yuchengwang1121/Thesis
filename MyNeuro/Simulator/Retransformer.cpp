@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
 	subArray->levelOutputBP = param->levelOutputAG;
 	subArray->numColMuxed = param->numColMuxed;               // How many columns share 1 read circuit (for neuro mode with analog RRAM) or 1 S/A (for memory mode or neuro mode with digital RRAM)
 	subArray->numRowMuxedBP = param->numRowMuxedAG;
-    subArray->clkFreq = param->clkFreq;                       // Clock frequency
+    subArray->clkFreq = 20e9;                       // Clock frequency
 	subArray->relaxArrayCellHeight = param->relaxArrayCellHeight;
 	subArray->relaxArrayCellWidth = param->relaxArrayCellWidth;
 	subArray->numReadPulse = param->numBitInput;
@@ -187,15 +187,15 @@ int main(int argc, char *argv[])
 	subArray->Initialize(numRow, numCol, param->unitLengthWireResistance);        // initialize subArray
 
 	// For Buffer
-	bufferInputCM->Initialize(param->numBitInput*numRow, param->clkFreq);
-	bufferP->Initialize(param->numBitInput*numRow, param->clkFreq);
-	bufferQ->Initialize(param->numBitInput*numRow, param->clkFreq);
-    bufferR->Initialize(param->numBitInput*numRow, param->clkFreq);
-    bufferSoft->Initialize(param->numBitInput*numRow, param->clkFreq);
+	bufferInputCM->Initialize(param->numBitInput*numRow, 20e9);
+	bufferP->Initialize(param->numBitInput*numRow, 20e9);
+	bufferQ->Initialize(param->numBitInput*numRow, 20e9);
+    bufferR->Initialize(param->numBitInput*numRow, 20e9);
+    bufferSoft->Initialize(param->numBitInput*numRow, 20e9);
 	if (param->parallelRead) {
-		bufferOutputCM->Initialize((numCol/param->numColMuxed)*(log2((double)param->levelOutput)+param->numBitInput+param->numColPerSynapse), param->clkFreq);
+		bufferOutputCM->Initialize((numCol/param->numColMuxed)*(log2((double)param->levelOutput)+param->numBitInput+param->numColPerSynapse), 20e9);
 	} else {
-		bufferOutputCM->Initialize((numCol/param->numColMuxed)*((log2((double)numRow)+param->cellBit-1)+param->numBitInput+param->numColPerSynapse), param->clkFreq);
+		bufferOutputCM->Initialize((numCol/param->numColMuxed)*((log2((double)numRow)+param->cellBit-1)+param->numBitInput+param->numColPerSynapse), 20e9);
 	}
 	cout<< "Bus" << endl;
 	// For Bus

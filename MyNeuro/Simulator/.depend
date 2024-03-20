@@ -35,6 +35,12 @@ MultilevelSenseAmp.o: MultilevelSenseAmp.cpp ../headerfile/constant.h \
  ../headerfile/MultilevelSenseAmp.h ../headerfile/typedef.h \
  ../headerfile/InputParameter.h ../headerfile/MemCell.h \
  ../headerfile/FunctionUnit.h ../headerfile/CurrentSenseAmp.h
+CurrentSenseAmp.o: CurrentSenseAmp.cpp ../headerfile/constant.h \
+ ../headerfile/formula.h ../headerfile/Technology.h \
+ ../headerfile/./typedef.h ../headerfile/Param.h \
+ ../headerfile/CurrentSenseAmp.h ../headerfile/FunctionUnit.h \
+ ../headerfile/typedef.h ../headerfile/InputParameter.h \
+ ../headerfile/MemCell.h
 NewSwitchMatrix.o: NewSwitchMatrix.cpp ../headerfile/constant.h \
  ../headerfile/formula.h ../headerfile/Technology.h \
  ../headerfile/./typedef.h ../headerfile/NewSwitchMatrix.h \
@@ -50,12 +56,20 @@ RowDecoder.o: RowDecoder.cpp ../headerfile/constant.h \
  ../headerfile/./typedef.h ../headerfile/RowDecoder.h \
  ../headerfile/typedef.h ../headerfile/InputParameter.h \
  ../headerfile/MemCell.h ../headerfile/FunctionUnit.h
-CurrentSenseAmp.o: CurrentSenseAmp.cpp ../headerfile/constant.h \
+Retransformer.o: Retransformer.cpp ../headerfile/function.h \
+ ../headerfile/MemCell.h ../headerfile/typedef.h ../headerfile/constant.h \
  ../headerfile/formula.h ../headerfile/Technology.h \
- ../headerfile/./typedef.h ../headerfile/Param.h \
- ../headerfile/CurrentSenseAmp.h ../headerfile/FunctionUnit.h \
- ../headerfile/typedef.h ../headerfile/InputParameter.h \
- ../headerfile/MemCell.h
+ ../headerfile/./typedef.h ../headerfile/Param.h ../headerfile/SubArray.h \
+ ../headerfile/InputParameter.h ../headerfile/formula.h \
+ ../headerfile/FunctionUnit.h ../headerfile/Adder.h \
+ ../headerfile/RowDecoder.h ../headerfile/Mux.h ../headerfile/DFF.h \
+ ../headerfile/Precharger.h ../headerfile/SRAMWriteDriver.h \
+ ../headerfile/SwitchMatrix.h ../headerfile/ShiftAdd.h \
+ ../headerfile/WLNewDecoderDriver.h ../headerfile/constant.h \
+ ../headerfile/NewSwitchMatrix.h ../headerfile/MultilevelSenseAmp.h \
+ ../headerfile/CurrentSenseAmp.h ../headerfile/MultilevelSAEncoder.h \
+ ../headerfile/SarADC.h ../headerfile/AdderTree.h \
+ ../headerfile/Definition.h ../headerfile/Bus.h ../headerfile/DFF.h
 Param.o: Param.cpp ../headerfile/Param.h
 DFF.o: DFF.cpp ../headerfile/constant.h ../headerfile/formula.h \
  ../headerfile/Technology.h ../headerfile/./typedef.h ../headerfile/DFF.h \
@@ -66,6 +80,20 @@ MultilevelSAEncoder.o: MultilevelSAEncoder.cpp ../headerfile/constant.h \
  ../headerfile/./typedef.h ../headerfile/MultilevelSAEncoder.h \
  ../headerfile/typedef.h ../headerfile/InputParameter.h \
  ../headerfile/MemCell.h ../headerfile/FunctionUnit.h
+soft.o: soft.cpp ../headerfile/function.h ../headerfile/MemCell.h \
+ ../headerfile/typedef.h ../headerfile/constant.h ../headerfile/formula.h \
+ ../headerfile/Technology.h ../headerfile/./typedef.h \
+ ../headerfile/Param.h ../headerfile/SubArray.h \
+ ../headerfile/InputParameter.h ../headerfile/formula.h \
+ ../headerfile/FunctionUnit.h ../headerfile/Adder.h \
+ ../headerfile/RowDecoder.h ../headerfile/Mux.h ../headerfile/DFF.h \
+ ../headerfile/Precharger.h ../headerfile/SRAMWriteDriver.h \
+ ../headerfile/SwitchMatrix.h ../headerfile/ShiftAdd.h \
+ ../headerfile/WLNewDecoderDriver.h ../headerfile/constant.h \
+ ../headerfile/NewSwitchMatrix.h ../headerfile/MultilevelSenseAmp.h \
+ ../headerfile/CurrentSenseAmp.h ../headerfile/MultilevelSAEncoder.h \
+ ../headerfile/SarADC.h ../headerfile/AdderTree.h \
+ ../headerfile/Definition.h ../headerfile/Bus.h ../headerfile/DFF.h
 Precharger.o: Precharger.cpp ../headerfile/constant.h \
  ../headerfile/formula.h ../headerfile/Technology.h \
  ../headerfile/./typedef.h ../headerfile/Precharger.h \
