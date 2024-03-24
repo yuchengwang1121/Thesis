@@ -4,6 +4,20 @@ WLNewDecoderDriver.o: WLNewDecoderDriver.cpp ../headerfile/constant.h \
  ../headerfile/FunctionUnit.h ../headerfile/constant.h \
  ../headerfile/typedef.h ../headerfile/InputParameter.h \
  ../headerfile/MemCell.h
+soft.o: soft.cpp ../headerfile/function.h ../headerfile/MemCell.h \
+ ../headerfile/typedef.h ../headerfile/constant.h ../headerfile/formula.h \
+ ../headerfile/Technology.h ../headerfile/./typedef.h \
+ ../headerfile/Param.h ../headerfile/SubArray.h \
+ ../headerfile/InputParameter.h ../headerfile/formula.h \
+ ../headerfile/FunctionUnit.h ../headerfile/Adder.h \
+ ../headerfile/RowDecoder.h ../headerfile/Mux.h ../headerfile/DFF.h \
+ ../headerfile/Precharger.h ../headerfile/SRAMWriteDriver.h \
+ ../headerfile/SwitchMatrix.h ../headerfile/ShiftAdd.h \
+ ../headerfile/WLNewDecoderDriver.h ../headerfile/constant.h \
+ ../headerfile/NewSwitchMatrix.h ../headerfile/MultilevelSenseAmp.h \
+ ../headerfile/CurrentSenseAmp.h ../headerfile/MultilevelSAEncoder.h \
+ ../headerfile/SarADC.h ../headerfile/AdderTree.h \
+ ../headerfile/Definition.h ../headerfile/Bus.h ../headerfile/DFF.h
 SarADC.o: SarADC.cpp ../headerfile/constant.h ../headerfile/formula.h \
  ../headerfile/Technology.h ../headerfile/./typedef.h \
  ../headerfile/Param.h ../headerfile/SarADC.h ../headerfile/typedef.h \
@@ -80,20 +94,6 @@ MultilevelSAEncoder.o: MultilevelSAEncoder.cpp ../headerfile/constant.h \
  ../headerfile/./typedef.h ../headerfile/MultilevelSAEncoder.h \
  ../headerfile/typedef.h ../headerfile/InputParameter.h \
  ../headerfile/MemCell.h ../headerfile/FunctionUnit.h
-soft.o: soft.cpp ../headerfile/function.h ../headerfile/MemCell.h \
- ../headerfile/typedef.h ../headerfile/constant.h ../headerfile/formula.h \
- ../headerfile/Technology.h ../headerfile/./typedef.h \
- ../headerfile/Param.h ../headerfile/SubArray.h \
- ../headerfile/InputParameter.h ../headerfile/formula.h \
- ../headerfile/FunctionUnit.h ../headerfile/Adder.h \
- ../headerfile/RowDecoder.h ../headerfile/Mux.h ../headerfile/DFF.h \
- ../headerfile/Precharger.h ../headerfile/SRAMWriteDriver.h \
- ../headerfile/SwitchMatrix.h ../headerfile/ShiftAdd.h \
- ../headerfile/WLNewDecoderDriver.h ../headerfile/constant.h \
- ../headerfile/NewSwitchMatrix.h ../headerfile/MultilevelSenseAmp.h \
- ../headerfile/CurrentSenseAmp.h ../headerfile/MultilevelSAEncoder.h \
- ../headerfile/SarADC.h ../headerfile/AdderTree.h \
- ../headerfile/Definition.h ../headerfile/Bus.h ../headerfile/DFF.h
 Precharger.o: Precharger.cpp ../headerfile/constant.h \
  ../headerfile/formula.h ../headerfile/Technology.h \
  ../headerfile/./typedef.h ../headerfile/Precharger.h \

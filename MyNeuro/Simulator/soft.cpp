@@ -9,6 +9,7 @@
 #include <sstream>
 #include <chrono>
 #include <algorithm>
+#include <string>
 #include "../headerfile/function.h"
 #include "../headerfile/constant.h"
 #include "../headerfile/formula.h"
@@ -278,6 +279,9 @@ int main(int argc, char *argv[])
 
     /*************************************************** CalculatePerformance ***************************************************/
 	bool STAR = false;	// <=== Modify When Change Structure ===>
+	string softtype = STAR ? "STAR" : "TransSeg";
+	cout << "------------------------------ Softmax Type --------------------------------" << endl;
+	cout << "==> Type : "<< softtype << endl;
 
     double numComputation = 0;
 	numComputation = 2*(netStructure[0][0] * netStructure[0][1] * netStructure[0][2] * netStructure[0][3] * netStructure[0][4] * netStructure[0][5]);

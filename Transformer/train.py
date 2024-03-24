@@ -1,11 +1,11 @@
 import argparse
 import time
 import torch
-from Models import get_model
-from Process import *
+from Function.Models import get_model
+from Function.Process import *
 import torch.nn.functional as F
-from Optim import CosineWithRestarts
-from Batch import create_masks
+from Function.Optim import CosineWithRestarts
+from Function.Batch import create_masks
 import dill as pickle
 
 def train_model(model, opt):

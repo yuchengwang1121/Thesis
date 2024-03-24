@@ -1,16 +1,16 @@
 import argparse
 import time
 import torch
-from Models import get_model
-from Process import *
+from Function.Models import get_model
+from Function.Process import *
 import torch.nn.functional as F
-from Optim import CosineWithRestarts
-from Batch import create_masks
+from Function.Optim import CosineWithRestarts
+from Function.Batch import create_masks
 import pdb
 import dill as pickle
 import argparse
-from Models import get_model
-from Beam import beam_search
+from Function.Models import get_model
+from Function.Beam import beam_search
 from nltk.corpus import wordnet
 from torch.autograd import Variable
 import re

@@ -403,17 +403,17 @@ int main(int argc, char *argv[])
         // cout << "CalculatePower" << endl;
 		subArray->CalculatePower(columnResistance, rowResistance);
         
-        SWReadLatency = subArray->readLatency;
-        SWReadDynamicEnergy = subArray->readDynamicEnergy;
-        SWLeakage = subArray->leakage;
+        SWReadLatency += subArray->readLatency;
+        SWReadDynamicEnergy += subArray->readDynamicEnergy;
+        SWLeakage += subArray->leakage;
         
-        SWLatencyADC = subArray->readLatencyADC;
-        SWLatencyAccum = subArray->readLatencyAccum;
-        SWLatencyOther = subArray->readLatencyOther;
+        SWLatencyADC += subArray->readLatencyADC;
+        SWLatencyAccum += subArray->readLatencyAccum;
+        SWLatencyOther += subArray->readLatencyOther;
         
-        SWEnergyADC = subArray->readDynamicEnergyADC;
-        SWEnergyAccum = subArray->readDynamicEnergyAccum;
-        SWEnergyOther = subArray->readDynamicEnergyOther;
+        SWEnergyADC += subArray->readDynamicEnergyADC;
+        SWEnergyAccum += subArray->readDynamicEnergyAccum;
+        SWEnergyOther += subArray->readDynamicEnergyOther;
     }
 
 	
@@ -443,7 +443,7 @@ int main(int argc, char *argv[])
         
         STReadLatency += subArray->readLatency;
         STReadDynamicEnergy += subArray->readDynamicEnergy;
-        STLeakage = subArray->leakage;
+        STLeakage += subArray->leakage;
         
         STLatencyADC += subArray->readLatencyADC;
         STLatencyAccum += subArray->readLatencyAccum;
@@ -478,17 +478,17 @@ int main(int argc, char *argv[])
         // cout << "CalculatePower" << endl;
 		subArray->CalculatePower(columnResistance, rowResistance);
         
-        SSReadLatency = subArray->readLatency;
-        SSReadDynamicEnergy = subArray->readDynamicEnergy;
-        SSLeakage = subArray->leakage;
+        SSReadLatency += subArray->readLatency;
+        SSReadDynamicEnergy += subArray->readDynamicEnergy;
+        SSLeakage += subArray->leakage;
         
-        SSLatencyADC = subArray->readLatencyADC;
-        SSLatencyAccum = subArray->readLatencyAccum;
-        SSLatencyOther = subArray->readLatencyOther;
+        SSLatencyADC += subArray->readLatencyADC;
+        SSLatencyAccum += subArray->readLatencyAccum;
+        SSLatencyOther += subArray->readLatencyOther;
         
-        SSEnergyADC = subArray->readDynamicEnergyADC;
-        SSEnergyAccum = subArray->readDynamicEnergyAccum;
-        SSEnergyOther = subArray->readDynamicEnergyOther;
+        SSEnergyADC += subArray->readDynamicEnergyADC;
+        SSEnergyAccum += subArray->readDynamicEnergyAccum;
+        SSEnergyOther += subArray->readDynamicEnergyOther;
     }
 
 	//considering buffer activation: no matter speedup or not, the total number of data transferred is fixed
