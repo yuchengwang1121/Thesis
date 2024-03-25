@@ -59,11 +59,11 @@ class MultiHeadAttention(nn.Module):
         k = self.k_linear(k).view(bs, -1, self.h, self.d_k)
         q = self.q_linear(q).view(bs, -1, self.h, self.d_k)
         v = self.v_linear(v).view(bs, -1, self.h, self.d_k)
-        if(Writedata):
-            print("===> Writing the weight Q,K,V in ", w_filename)
-            np.savetxt(w_filename + "_Q.csv", self.q_linear.weight.detach().numpy() , delimiter=",",fmt='%10.5f')
-            np.savetxt(w_filename + "_K.csv", self.k_linear.weight.detach().numpy() , delimiter=",",fmt='%10.5f')
-            np.savetxt(w_filename + "_V.csv", self.v_linear.weight.detach().numpy() , delimiter=",",fmt='%10.5f')
+        # if(Writedata):
+            # print("===> Writing the weight Q,K,V in ", w_filename)
+            # np.savetxt(w_filename + "_Q.csv", self.q_linear.weight.detach().numpy() , delimiter=",",fmt='%10.5f')
+            # np.savetxt(w_filename + "_K.csv", self.k_linear.weight.detach().numpy() , delimiter=",",fmt='%10.5f')
+            # np.savetxt(w_filename + "_V.csv", self.v_linear.weight.detach().numpy() , delimiter=",",fmt='%10.5f')
         # transpose to get dimensions bs * N * sl * d_model
         k = k.transpose(1,2)
         q = q.transpose(1,2)

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from Sublayers import FeedForward, MultiHeadAttention, Norm
+from Function.Sublayers import FeedForward, MultiHeadAttention, Norm
 
 class EncoderLayer(nn.Module):
     def __init__(self, d_model, heads, dropout=0.1):
@@ -14,7 +14,7 @@ class EncoderLayer(nn.Module):
         
     def forward(self, x, mask, Writedata, Layer):
         x2 = self.norm_1(x)
-        print("-------------------EncoderLayer %d-------------------" % Layer)
+        # print("-------------------EncoderLayer %d-------------------" % Layer)
         x = x + self.dropout_1(self.attn(x2,x2,x2,mask, Writedata, Layer))
         x2 = self.norm_2(x)
         x = x + self.dropout_2(self.ff(x2))

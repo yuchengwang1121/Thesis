@@ -1,5 +1,5 @@
 import torch
-from Batch import nopeak_mask
+from Function.Batch import nopeak_mask
 import torch.nn.functional as F
 import math
 

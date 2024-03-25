@@ -67,9 +67,9 @@ for i in range(len(readLUT)):
         LUT = np.vstack([LUT,np.array(letter)])
     else:
         LUT = np.array(letter)
-    if(args.write_LUT):
-        print("==> Saving the LUT into the specify folder : ", s_filename)
-        np.savetxt(s_filename + "LUT.csv", LUT , delimiter=",",fmt='%d')
+if(args.write_LUT):
+    print("==> Saving the LUT into the specify folder : ", s_filename)
+    np.savetxt(s_filename + "LUT.csv", LUT , delimiter=",",fmt='%d')
 
 
 

@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn 
-from Layers import EncoderLayer, DecoderLayer
-from Embed import Embedder, PositionalEncoder
-from Sublayers import Norm
+from Function.Layers import EncoderLayer, DecoderLayer
+from Function.Embed import Embedder, PositionalEncoder
+from Function.Sublayers import Norm
 import copy
 import numpy as np
 
@@ -21,8 +21,8 @@ class Encoder(nn.Module):
         i_filename = "../Data/Input.csv"
         x = self.embed(src)
         x = self.pe(x)
-        print("Writing the PE input in ", i_filename, " with size ", x.size()[1], " * ", x.size()[2])
-        np.savetxt(i_filename , x.detach().numpy().reshape(x.size()[1],x.size()[2]) , delimiter=",",fmt='%10.5f')
+        # print("Writing the PE input in ", i_filename, " with size ", x.size()[1], " * ", x.size()[2])
+        # np.savetxt(i_filename , x.detach().numpy().reshape(x.size()[1],x.size()[2]) , delimiter=",",fmt='%10.5f')
         for i in range(self.N):
             x = self.layers[i](x, mask, True, i)   # Add "True" to write only Encoder
         return self.norm(x)

@@ -52,7 +52,6 @@ def translate(opt, model, SRC, TRG):
     sentences = opt.text.lower().split('.')
     translated = []
     for sentence in sentences:
-        print("FKFKFKF ", sentence)
         translated.append(translate_sentence(sentence + "." , model, opt, SRC, TRG).capitalize())
         break
 

@@ -64,12 +64,14 @@ if(args.STAR):
 
     scores = np.around(np.matmul(Q ,K.transpose()))
     scores = F.softmax(tr.tensor(scores), dim=-1)
+    scores = np.matmul(scores, V)
     print("\n####################### STAR #######################\n")
     print("==> Saving the Softmax result of 'STAR' into the specify folder : ", args.Path, " as Soft_STAR.csv")
     np.savetxt(args.Path + "Soft_STAR.csv", scores , delimiter=",",fmt='%10.5f')
 
 # TransSeg
 elif (args.TransSeg):
+    V = np.matmul(In, v)
     QK_seg = np.empty((args.Seg, Seg_size, In.shape[1]))
     for i in range(args.Seg):
         QK_seg[i] = np.matmul(np.matmul(Seg_array[i], q),k.transpose())
@@ -88,11 +90,12 @@ elif (args.TransSeg):
         
         merge_S.append(np.concatenate(S, axis=1))
     Res = np.concatenate(merge_S, axis=0)
+    scores = np.matmul(Res, V)
 
 ## Save result
     print("\n####################### TransSeg #######################\n")
     print("==> Saving the Softmax result of 'TransSeg' into the specify folder : ", args.Path , " as ", "Soft_TransSeg_"+ str(args.Seg) +".csv")
-    np.savetxt(args.Path + "Soft_TransSeg_"+ str(args.Seg) +".csv", Res , delimiter=",",fmt='%10.5f')
+    np.savetxt(args.Path + "Soft_TransSeg_"+ str(args.Seg) +".csv", scores , delimiter=",",fmt='%10.5f')
 
 #######################     Calculate MSE     #######################
 if(args.CalculMSE):

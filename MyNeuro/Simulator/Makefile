@@ -1,27 +1,27 @@
 .SECONDEXPANSION:
 
-mode = 2
+mode = 1
 
 ifeq ($(mode),1)
-	main=MyNeuro
+	main=TransSeg
 else ifeq ($(mode),2)
-    main=Retransformer
+    main=STAR
 else ifeq ($(mode),3)
 	main=Soft
 endif
 
-ifeq ($(main),MyNeuro)
-    MAINS := main.cpp
-	FILTER1 := Retransformer.cpp
+ifeq ($(main),TransSeg)
+    MAINS := TransSeg.cpp
+	FILTER1 := STAR.cpp
 	FILTER2 := soft.cpp
-else ifeq ($(main),Retransformer)
-    MAINS := Retransformer.cpp
-	FILTER1 := main.cpp
+else ifeq ($(main),STAR)
+    MAINS := STAR.cpp
+	FILTER1 := TransSeg.cpp
 	FILTER2 := soft.cpp
 else
 	MAINS := soft.cpp
-	FILTER1 := Retransformer.cpp
-	FILTER2 := main.cpp
+	FILTER1 := STAR.cpp
+	FILTER2 := TransSeg.cpp
 endif
 
 ALLSRC := $(wildcard *.cpp)
@@ -36,7 +36,7 @@ CXXFLAGS := -fopenmp -O3 -std=c++0x -w	# -w disables warnings
 # all: Mode
 all: Mode $(MAINS:.cpp=)
 Mode:
-	@echo "The mode is"  $(main)
+	@echo "==> The mode is"  $(main)
 
 $(MAINS:.cpp=): $(OBJ) $$@.o
 	$(CXX) $(CXXFLAGS) $^ -o $@

@@ -36,6 +36,11 @@ int main(int argc, char *argv[])
     param->synapseBit = atoi(argv[3]);  // precision of synapse weight
     param->numBitInput = atoi(argv[4]); // precision of input neural activation
 
+	bool STAR = false;	// <=== Modify When Change Structure ===>
+	string softtype = STAR ? "STAR" : "TransSeg";
+	cout << "------------------------------ Softmax Type --------------------------------" << endl;
+	cout << "==> Type : "<< softtype << endl;
+
     if (param->cellBit > param->synapseBit)
     {
         cout << "ERROR!: Memory precision is even higher than synapse precision, please modify 'cellBit' in Param.cpp!" << endl;
@@ -114,7 +119,7 @@ int main(int argc, char *argv[])
     /*** CAM's property ***/
 	int CAMnumRow = 64;		//each vector has 64 bit
 	int CAMnumCol = 64;		//hit vector from -20 ~ 43
-	int CAMclk    = 15e9;	// <=== Modify When Change Structure===>
+	int CAMclk    = (STAR)? 20e9 : 15e9;
 
 	CAM->conventionalParallel = param->conventionalParallel;                  
 	CAM->conventionalSequential = param->conventionalSequential;   
@@ -151,9 +156,9 @@ int main(int argc, char *argv[])
     CAM->maxNumWritePulse = MAX(cell.maxNumLevelLTP, cell.maxNumLevelLTD);
 
 	/*** LUT's property ***/
-	int LUTnumRow = 16;		//from -15 ~ 0
+	int LUTnumRow = (STAR)? 64 : 16;		//from -15 ~ 0
 	int LUTnumCol = 32;		//use 32bit ti reprecent precision 8 LUT
-	int LUTclk    = 15e9;	// <=== Modify When Change Structure===>
+	int LUTclk    = (STAR)? 20e9 : 15e9;
 
 	LUT->conventionalParallel = param->conventionalParallel;                  
 	LUT->conventionalSequential = param->conventionalSequential;   
@@ -198,6 +203,7 @@ int main(int argc, char *argv[])
 	CAM->Initialize(CAMnumRow, CAMnumCol, param->unitLengthWireResistance);        // initialize CAM
 	LUT->Initialize(LUTnumRow, LUTnumCol, param->unitLengthWireResistance);        // initialize LUT
 
+	cout << "number of Segment is " << atoi(argv[5]) << " with Input size is " << 16/atoi(argv[5]) << endl;
     cout << "number of CAM subarray's row is " << CAMnumSubArrayRow << " with number of subarray's col is " << CAMnumSubArrayCol << endl;
 	cout << "number of LUT subarray's row is " << LUTnumSubArrayRow << " with number of subarray's col is " << LUTnumSubArrayCol << endl;
     cout << endl;
@@ -278,10 +284,6 @@ int main(int argc, char *argv[])
     /****************************************************** CalculateArea *******************************************************/
 
     /*************************************************** CalculatePerformance ***************************************************/
-	bool STAR = false;	// <=== Modify When Change Structure ===>
-	string softtype = STAR ? "STAR" : "TransSeg";
-	cout << "------------------------------ Softmax Type --------------------------------" << endl;
-	cout << "==> Type : "<< softtype << endl;
 
     double numComputation = 0;
 	numComputation = 2*(netStructure[0][0] * netStructure[0][1] * netStructure[0][2] * netStructure[0][3] * netStructure[0][4] * netStructure[0][5]);
@@ -339,16 +341,17 @@ int main(int argc, char *argv[])
 	EnergyOther			= 0;
 
     // weight matrix is further partitioned inside PE (among subArray) --> no duplicated
-	int numInVector = STAR ? 16 : 4;
+	int numInVector, numSeg;
+	numSeg = atoi(argv[5]);
+	numInVector = 16/numSeg;
 
 	// load in whole file 
 	vector<vector<double>> CAMMemory,LUTMemory;
 	vector<vector<double>> CAMinputVector, LUTinputVector;
-	
-	CAMMemory = LoadInWeightData(argv[5], 1, 1, param->maxConductance, param->minConductance);
-	LUTMemory = LoadInWeightData(argv[6], 1, 1, param->maxConductance, param->minConductance);
-	CAMinputVector = LoadInInputData(argv[7]);
-	LUTinputVector = LoadInInputData(argv[8]);
+	CAMMemory = LoadInWeightData(argv[6], 1, 1, param->maxConductance, param->minConductance);
+	LUTMemory = LoadInWeightData(argv[7], 1, 1, param->maxConductance, param->minConductance);
+	CAMinputVector = LoadInInputData(argv[8]);
+	LUTinputVector = LoadInInputData(argv[9]);
 
     /*** assign weight and input to specific subArray ***/
     vector<vector<double>> subCAMMemory, subLUTMemory;
@@ -357,7 +360,7 @@ int main(int argc, char *argv[])
     subCAMMemory = CopySubArray(CAMMemory, 0, 0, CAMnumRow, CAMnumCol);		//64*64
 	subLUTMemory = CopySubArray(LUTMemory, 0, 0, LUTnumRow, LUTnumCol);		//16*32
 	CAMArrayInput = CopySubInput(CAMinputVector, 0, numInVector, CAMnumRow);//16*64
-	VMMArrayInput = CopySubInput(LUTinputVector, 0, 1, CAMnumRow);			//1*64
+	VMMArrayInput = CopySubInput(LUTinputVector, 0, 1, LUTnumRow);			//1*16
 	// cout << "CopySubInput : " << endl;
 	
     for (int k=0; k<numInVector*3; k++) {	// calculate three times to FindMax & FindSub & Find SUBMV
@@ -472,17 +475,17 @@ int main(int argc, char *argv[])
     }
 
 
-    Leakage = ICLeakage + SLLeakage; //Weight Q,K,V & transpose I & I
+    Leakage = numInVector*numSeg*(ICLeakage + SLLeakage + CVLeakage); //Weight Q,K,V & transpose I & I
 	
-	LatencyADC = ICLatencyADC + SLLatencyADC + CVLatencyADC;
-	LatencyOther = ICLatencyOther + SLLatencyOther + CVLatencyOther;
-	LatencyAccum = ICLatencyAccum + SLLatencyAccum + CVLatencyAccum;
+	LatencyADC = numInVector*numSeg*(ICLatencyADC + SLLatencyADC + CVLatencyADC);
+	LatencyOther = numInVector*numSeg*(ICLatencyOther + SLLatencyOther + CVLatencyOther);
+	LatencyAccum = numInVector*numSeg*(ICLatencyAccum + SLLatencyAccum + CVLatencyAccum);
 
-	EnergyADC = ICEnergyADC + SLEnergyADC + CVEnergyADC;
-	EnergyOther = ICEnergyOther + SLEnergyOther + CVEnergyOther;
-	EnergyAccum = ICEnergyAccum + SLEnergyAccum + CVEnergyAccum;
-    ReadLatency = ICReadLatency + SLReadLatency + CVReadLatency;
-    ReadDynamicEnergy = ICReadDynamicEnergy + SLReadDynamicEnergy + CVReadDynamicEnergy;
+	EnergyADC = numInVector*numSeg*(ICEnergyADC + SLEnergyADC + CVEnergyADC);
+	EnergyOther = numInVector*numSeg*(ICEnergyOther + SLEnergyOther + CVEnergyOther);
+	EnergyAccum = numInVector*numSeg*(ICEnergyAccum + SLEnergyAccum + CVEnergyAccum);
+    ReadLatency = numInVector*numSeg*(ICReadLatency + SLReadLatency + CVReadLatency);
+    ReadDynamicEnergy = numInVector*numSeg*(ICReadDynamicEnergy + SLReadDynamicEnergy + CVReadDynamicEnergy);
     LeakageEnergy = Leakage * ReadLatency;
 
     cout << "------------------------------ Summary --------------------------------" << endl;
@@ -512,8 +515,8 @@ int main(int argc, char *argv[])
 
     cout << "readLatency  is: " << ReadLatency * 1e9 << "ns" << endl;
     cout << "readDynamicEnergy  is: " << ReadDynamicEnergy * 1e12 << "pJ" << endl;
-    cout << "leakage Energy is: " << LeakageEnergy * 1e12 << "pJ" << endl;
-    cout << "leakage Power is: " << Leakage * 1e6 << "uW" << endl;
+    cout << "leakage Energy (Leakage * ReadLatency) is: " << LeakageEnergy * 1e12 << "pJ" << endl;
+    cout << "leakage Power (Leakage) is: " << Leakage * 1e6 << "uW" << endl;
     cout << endl;
     cout << "************************ Breakdown of Latency and Dynamic Energy *************************" << endl;
     cout << endl;
