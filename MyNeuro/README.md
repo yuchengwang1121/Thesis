@@ -24,7 +24,7 @@ endif
     * TransSeg_Arch.sh $\Leftrightarrow$ mode=1
     * STAR_Arch.sh $\Leftrightarrow$ mode=2
     * STAR_Soft.sh & TransSeg_Soft.sh $\Leftrightarrow$ mode=3
-* Mind that if you need to Simulate different numbers of Segment results, modify the TransSeg_Soft.sh's argv[5] & argv[8] to related number.
+* Mind that if you need to Simulate different numbers of Segment results, modify the TransSeg_Soft.sh's `argv[5] & argv[8]` to related number.
 
 ### Step 3: Run the Simulator
 * After all, type the code as shown below, and the result will be displayed on your terminal.
