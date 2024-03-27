@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
     // define weight/input/memory precision from wrapper
     param->synapseBit = atoi(argv[3]);  // precision of synapse weight
     param->numBitInput = atoi(argv[4]); // precision of input neural activation
-
+	
     if (param->cellBit > param->synapseBit)
     {
         cout << "ERROR!: Memory precision is even higher than synapse precision, please modify 'cellBit' in Param.cpp!" << endl;
@@ -373,7 +373,6 @@ int main(int argc, char *argv[])
 	// load in whole file 
 	vector<vector<double>> weightMemory, transMemory, inputMemory;
 	vector<vector<double>> inputVector, softVector;
-	
 	weightMemory = LoadInWeightData(argv[5], 1, 1, param->maxConductance, param->minConductance);
 	transMemory = LoadInWeightData(argv[6], 1, 1, param->maxConductance, param->minConductance);
 	inputMemory = LoadInWeightData(argv[7], 1, 1, param->maxConductance, param->minConductance);
@@ -595,8 +594,8 @@ int main(int argc, char *argv[])
 
     cout << "readLatency  is: " << ReadLatency * 1e9 << "ns" << endl;
     cout << "readDynamicEnergy  is: " << ReadDynamicEnergy * 1e12 << "pJ" << endl;
-    cout << "leakage Energy is: " << LeakageEnergy * 1e12 << "pJ" << endl;
-    cout << "leakage Power is: " << Leakage * 1e6 << "uW" << endl;
+    cout << "leakage Energy (Leakage * ReadLatency) is: " << LeakageEnergy * 1e12 << "pJ" << endl;
+    cout << "leakage Power (Leakage) is: " << Leakage * 1e6 << "uW" << endl;
     cout << endl;
     cout << "************************ Breakdown of Latency and Dynamic Energy *************************" << endl;
     cout << endl;

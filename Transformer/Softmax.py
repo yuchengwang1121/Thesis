@@ -8,8 +8,14 @@ import sys
  
 #######################     The Parser     #######################
 parser = ArgumentParser()
-parser.add_argument('--Path', default="../Data/",
+parser.add_argument('--WeightPath', default="./Weight/",
                         help='The path to store .csv file')
+parser.add_argument('--InputPath', default="./Input/",
+                        help='The path to store .csv file')
+parser.add_argument('--ResultPath', default="./Result/",
+                        help='The path to store .csv file')
+parser.add_argument('--Layer', type=int,  default=0,
+                        help='The Layer to simulate.')
 parser.add_argument('--STAR', action='store', default=False,
                         help='Run the Softmax on STAR')
 parser.add_argument('--TransSeg', action='store', default=False,
@@ -25,9 +31,12 @@ parser.add_argument('--src2', type=str,
 
 args = parser.parse_args()
 print("====> The parser are setting as below\n")
-print("==> The path is : ", args.Path)
+print("==> The weight path is : ", args.WeightPath)
+print("==> The input  path is : ", args.InputPath)
+print("==> The result path is : ", args.ResultPath)
+
 if not(args.STAR or args.TransSeg or args.CalculMSE):
-    print("Please choose one of the mode below as 'true' ")
+    print("Please choose one of the mode below as 'true'.")
     print("1. STAR")
     print("2. TransSeg")
     print("3. CalculMSE")
@@ -36,24 +45,28 @@ if not(args.STAR or args.TransSeg or args.CalculMSE):
 print("==> The mode is : ", 'STAR' if args.STAR else 'TransSeg' if args.TransSeg else 'Calculate MSE')
 if(args.CalculMSE):
     if not (args.src1 and args.src2):
-        print("--src1 and --src2 are required when CalculMSE is True")
+        print("--src1 and --src2 are required when CalculMSE is True.")
         sys.exit(1)
     else:
-        print("==> The src1 is : ", args.Path+args.src1)
-        print("==> The src2 is : ", args.Path+args.src2)
+        print("==> The src1 is : ", args.ResultPath+args.src1)
+        print("==> The src2 is : ", args.ResultPath+args.src2)
+else:
+    if not(args.Layer):
+        print("Please choose the Layer.")
+        sys.exit(1)
+    else:
+        print("==> The In size is ", In.shape, " with num of Seg", len(Seg_array))
 
 
 #######################     Read file     #######################
 print("\n####################### Read file #######################\n")
-q = read_csv(args.Path+'Weight0_Q.csv',header=None).values
-k = read_csv(args.Path+'Weight0_K.csv',header=None).values
-v = read_csv(args.Path+'Weight0_V.csv',header=None).values
+q = read_csv(args.WeightPath+'weight' + str(args.Layer) + '_Q.csv',header=None).values
+k = read_csv(args.WeightPath+'weight' + str(args.Layer) + '_K.csv',header=None).values
+v = read_csv(args.WeightPath+'weight' + str(args.Layer) + '_V.csv',header=None).values
 
-In = read_csv(args.Path+'Input.csv',header=None).values
+In = read_csv(args.InputPath+'input_' + str(args.Layer) + '.csv',header=None).values
 Seg_array = np.split(In, args.Seg, axis=0)
 Seg_size = int(In.shape[0]/args.Seg)
-
-print("==> The In size is ", In.shape, " with num of Seg", len(Seg_array))
 
 #######################     The Main Function     #######################
 # STAR
@@ -64,10 +77,12 @@ if(args.STAR):
 
     scores = np.around(np.matmul(Q ,K.transpose()))
     scores = F.softmax(tr.tensor(scores), dim=-1)
-    scores = np.matmul(scores, V)
+    attscore = np.matmul(scores, V)
     print("\n####################### STAR #######################\n")
-    print("==> Saving the Softmax result of 'STAR' into the specify folder : ", args.Path, " as Soft_STAR.csv")
-    np.savetxt(args.Path + "Soft_STAR.csv", scores , delimiter=",",fmt='%10.5f')
+    print("==> Saving the Softmax result of 'STAR' into the specify folder : ", args.ResultPath, " as Attscore_STAR.csv")
+    np.savetxt(args.ResultPath + "Attscore_STAR.csv", attscore , delimiter=",",fmt='%10.5f')
+    print("==> Saving the Softmax result of 'STAR' into the specify folder : ", args.ResultPath, " as Soft_STAR.csv")
+    np.savetxt(args.ResultPath + "Soft_STAR.csv", scores , delimiter=",",fmt='%10.5f')
 
 # TransSeg
 elif (args.TransSeg):
@@ -90,17 +105,19 @@ elif (args.TransSeg):
         
         merge_S.append(np.concatenate(S, axis=1))
     Res = np.concatenate(merge_S, axis=0)
-    scores = np.matmul(Res, V)
+    attscore = np.matmul(Res, V)
 
 ## Save result
     print("\n####################### TransSeg #######################\n")
-    print("==> Saving the Softmax result of 'TransSeg' into the specify folder : ", args.Path , " as ", "Soft_TransSeg_"+ str(args.Seg) +".csv")
-    np.savetxt(args.Path + "Soft_TransSeg_"+ str(args.Seg) +".csv", scores , delimiter=",",fmt='%10.5f')
+    print("==> Saving the Softmax result of 'TransSeg' into the specify folder : ", args.ResultPath , " as ", "Attscore_TransSeg_"+ str(args.Seg) +".csv")
+    np.savetxt(args.ResultPath + "Layer" + str(args.Layer) + "/Attscore_TransSeg_" + str(args.Seg) +".csv", attscore , delimiter=",",fmt='%10.5f')
+    print("==> Saving the Softmax result of 'TransSeg' into the specify folder : ", args.ResultPath , " as ", "Soft_TransSeg_"+ str(args.Seg) +".csv")
+    np.savetxt(args.ResultPath + "Layer" + str(args.Layer) + "/Soft_TransSeg_" + str(args.Seg) +".csv", Res , delimiter=",",fmt='%10.5f')
 
 #######################     Calculate MSE     #######################
 if(args.CalculMSE):
-    ori = read_csv(args.Path+args.src1,header=None).values
-    cmp = read_csv(args.Path+args.src2,header=None).values
+    ori = read_csv(args.ResultPath+args.src1,header=None).values
+    cmp = read_csv(args.ResultPath+args.src2,header=None).values
 
     mse = np.mean((ori-cmp)**2)
     print("==> The MSE result is : ", mse)

@@ -1,1 +1,1 @@
-./Simulator/STAR 0 ./Simulator/Network.csv 5 5 ./data/Weight.csv ./data/TransInput.csv ./data/Input.csv ./data/Input.csv ./data/ReSoft.csv
+./Simulator/STAR 0 ./Simulator/Network.csv 5 5 ./data/STAR_Arch/Weight.csv ./data/STAR_Arch/TransInput.csv ./data/STAR_Arch/Input.csv ./data/STAR_Arch/Input.csv ./data/STAR_Arch/Soft_STAR.csv
