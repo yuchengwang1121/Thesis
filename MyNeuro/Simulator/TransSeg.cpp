@@ -179,11 +179,11 @@ int main(int argc, char *argv[])
     subArray->maxNumWritePulse = MAX(cell.maxNumLevelLTP, cell.maxNumLevelLTD);
 
 	/*** User defined num of elements ***/
-	int numSubArrayRow = 4;		// The number of subarray's row
+	int numSubArrayRow = 4;		// The number of subarray's row						//<=== Need Modify ===>
 	int numSubArrayCol = 3; 	// The number of subarray's col
-	int numbusRow = 4;			// The number of bus's connect to addertree in row
+	int numbusRow = 4;			// The number of bus's connect to addertree in row	//<=== Need Modify ===>
 	int numbusCol = 1; 			// The number of bus's connect to addertree in col
-	int numsegment = 4;			// The number of segment after input partition
+	int numsegment = 4;			// The number of segment after input partition		//<=== Need Modify ===>
 	int nummuxin = 1;			// The number of output before mux
 	int nummuxout = 2;			// The number of output after mux
 	double resTg = cell.resistanceOn * IR_DROP_TOLERANCE + cell.resistanceOn;

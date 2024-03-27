@@ -18,13 +18,10 @@ class Encoder(nn.Module):
         self.layers = get_clones(EncoderLayer(d_model, heads, dropout), N)
         self.norm = Norm(d_model)
     def forward(self, src, mask):
-        i_filename = "./Input/peinput.csv"
         x = self.embed(src)
         x = self.pe(x)
-        print("Writing the PE input in ", i_filename, " with size ", x.size()[1], " * ", x.size()[2])
-        np.savetxt(i_filename , x.detach().numpy().reshape(x.size()[1],x.size()[2]) , delimiter=",",fmt='%10.5f')
         for i in range(self.N):
-            x = self.layers[i](x, mask, True, i)   # Add "True" to write only Encoder
+            x = self.layers[i](x, mask, False, i)   # Add "True" to write only Encoder
         return self.norm(x)
     
 class Decoder(nn.Module):

@@ -16,9 +16,10 @@ class EncoderLayer(nn.Module):
     def forward(self, x, mask, Writedata, Layer):
         i_filename = "./Input"
         x2 = self.norm_1(x)
-        print("Writing the Norm_in input in ", i_filename + str(Layer) + ".csv", " with size ", x2.size()[1], " * ", x2.size()[2])
-        np.savetxt(i_filename+ "/input_" + str(Layer) + ".csv" , x2.detach().numpy().reshape(x2.size()[1],x2.size()[2]) , delimiter=",",fmt='%10.5f')
-        print("-------------------EncoderLayer %d-------------------" % Layer)
+        if( Writedata):
+            print("Writing the Norm_in input in ", i_filename + str(Layer) + ".csv", " with size ", x2.size()[1], " * ", x2.size()[2])
+            np.savetxt(i_filename+ "/input_" + str(Layer) + ".csv" , x2.detach().numpy().reshape(x2.size()[1],x2.size()[2]) , delimiter=",",fmt='%10.5f')
+        # print("-------------------EncoderLayer %d-------------------" % Layer)
         x = x + self.dropout_1(self.attn(x2,x2,x2,mask, Writedata, Layer))
         x2 = self.norm_2(x)
         x = x + self.dropout_2(self.ff(x2))

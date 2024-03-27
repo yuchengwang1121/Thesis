@@ -55,10 +55,12 @@ class MultiHeadAttention(nn.Module):
     def forward(self, q, k, v, mask=None, Writedata=None, Layer=0):
         w_filename = "./Weight/weight" + str(Layer)
         bs = q.size(0)
+        # print("===> The Bq is ", q.size(), " with self.h ", self.h, " with d_k ",self.d_k)
         # perform linear operation and split into N heads
         k = self.k_linear(k).view(bs, -1, self.h, self.d_k)
         q = self.q_linear(q).view(bs, -1, self.h, self.d_k)
         v = self.v_linear(v).view(bs, -1, self.h, self.d_k)
+        # print("===> The Aq is ", q.size())
         if(Writedata):
             print("===> Writing the weight Q,K,V in ", w_filename)
             np.savetxt(w_filename + "_Q.csv", self.q_linear.weight.detach().numpy() , delimiter=",",fmt='%10.5f')
