@@ -16,7 +16,7 @@ parser.add_argument('--InputPath', default="./data/Input/",
 parser.add_argument('--ResultPath', default="./data/Result/",
                         help='The path to store .csv file')
 # Generater Attention score
-parser.add_argument('--Layer', type=int,  default=0,
+parser.add_argument('--Layer', type=int,  default=None,
                         help='The Layer to simulate.')
 parser.add_argument('--STAR', action='store', default=False,
                         help='Run the Softmax on STAR')
@@ -27,11 +27,11 @@ parser.add_argument('--Seg', type=int,  default=4,
 # Calculate Mean Square Error
 parser.add_argument('--CalculMSE', action='store', default=False,
                         help='Calculate MSE between different number of segment')
-parser.add_argument('--src1', type=str,
+parser.add_argument('--src1', type=str,default=None,
                         help='The path where store {src1}.csv file')
-parser.add_argument('--src2', type=str,
+parser.add_argument('--src2', type=str,default=None,
                         help='The path where store {src2}.csv file')
-# Generate CAM&LUT data
+# Generate CAM&LUT data for NeuroSim
 parser.add_argument('--GenCAMLUT', action='store', default=False,
                         help='Calculate MSE between different number of segment')
 parser.add_argument('--CAM_size', type=int,  default=64,
@@ -44,38 +44,56 @@ parser.add_argument('--write_LUT', action='store', default=False,
                         help='Write the LUT to fit NeuroSim')
 parser.add_argument('--Bin_Pre',  type=int,  default=32,
                         help='The Precise to store LUT into binary form')
+# Generate Input data for NeuroSim
+parser.add_argument('--TransSeg_Arch', action='store', default=False,
+                        help='Calculate MSE between different number of segment')
 
 args = parser.parse_args()
 print("====> The parser are setting as below\n")
+print("#######################  Path setting  #######################")
 print("==> The weight path is : ", args.WeightPath)
 print("==> The input  path is : ", args.InputPath)
 print("==> The result path is : ", args.ResultPath)
 
-if not(args.STAR or args.TransSeg or args.CalculMSE or args.GenCAMLUT):
+if not(args.STAR or args.TransSeg or args.CalculMSE or args.GenCAMLUT or args.TransSeg_Arch):
     print("Please choose one of the mode below as 'true'.")
     print("1. STAR")
     print("2. TransSeg")
     print("3. CalculMSE")
     print("4. GenCAMLUT")
+    print("5. TransSeg_Arch")
     sys.exit(1)
 
-print("==> The mode is : ", 'STAR' if args.STAR else 'TransSeg' if args.TransSeg else 'Calculate MSE' if args.CalculMSE else 'Generate CAM&LUT')
-if(args.GenCAMLUT):
+print("\n#######################  Mode setting  #######################")
+print("==> The mode is : ", 'STAR' if args.STAR else 'TransSeg' if args.TransSeg else 'Calculate MSE'
+                                   if args.CalculMSE else 'Generate CAM&LUT' if args.GenCAMLUT else 'Generate Input')
+
+if(args.TransSeg_Arch):
+    print("==> The Segment number is : ", args.Seg)
+elif(args.GenCAMLUT):
     print("==> The CAM size is : ", args.CAM_size)
     print("==> The LUT size is : ", args.LUT_size, " with precision ", args.Bin_Pre)
 elif(args.CalculMSE):
-    if not (args.src1 and args.src2):
+    if (args.src1==None or  args.src2==None):
         print("--src1 and --src2 are required when CalculMSE is True.")
         sys.exit(1)
     else:
         print("==> The src1 is : ", args.ResultPath+args.src1)
         print("==> The src2 is : ", args.ResultPath+args.src2)
 else:
-    if not(args.Layer):
+    if (args.Layer == None):
         print("Please choose the Layer.")
         sys.exit(1)
-        
+    else:
+        # Read file
+        print("\n####################### Read file #######################")
+        q = read_csv(args.WeightPath+'weight' + str(args.Layer) + '_Q.csv',header=None).values
+        k = read_csv(args.WeightPath+'weight' + str(args.Layer) + '_K.csv',header=None).values
+        v = read_csv(args.WeightPath+'weight' + str(args.Layer) + '_V.csv',header=None).values
 
+        In = read_csv(args.InputPath+'input_' + str(args.Layer) + '.csv',header=None).values
+        Seg_array = np.split(In, args.Seg, axis=0)
+        Seg_size = int(In.shape[0]/args.Seg)
 
 
 #######################     The Sub Function     #######################
@@ -96,16 +114,6 @@ def float_to_binary(num, precision=args.Bin_Pre):
     binary_representation = integer_binary + fractional_binary
     return binary_representation
 
-# Read file
-print("\n####################### Read file #######################\n")
-q = read_csv(args.WeightPath+'weight' + str(args.Layer) + '_Q.csv',header=None).values
-k = read_csv(args.WeightPath+'weight' + str(args.Layer) + '_K.csv',header=None).values
-v = read_csv(args.WeightPath+'weight' + str(args.Layer) + '_V.csv',header=None).values
-
-In = read_csv(args.InputPath+'input_' + str(args.Layer) + '.csv',header=None).values
-Seg_array = np.split(In, args.Seg, axis=0)
-Seg_size = int(In.shape[0]/args.Seg)
-
 #######################     The Main Function     #######################
 # STAR
 if(args.STAR):
@@ -117,10 +125,10 @@ if(args.STAR):
     scores = F.softmax(tr.tensor(scores), dim=-1)
     attscore = np.matmul(scores, V)
     print("\n####################### Saving STAR #######################\n")
-    print("==> Saving the Softmax result of 'STAR' into the specify folder : ", args.ResultPath, " as Attscore_STAR.csv")
-    np.savetxt(args.ResultPath + "Attscore_STAR.csv", attscore , delimiter=",",fmt='%10.5f')
-    print("==> Saving the Softmax result of 'STAR' into the specify folder : ", args.ResultPath, " as Soft_STAR.csv")
-    np.savetxt(args.ResultPath + "Soft_STAR.csv", scores , delimiter=",",fmt='%10.5f')
+    print("==> Saving the Softmax result of 'STAR' into the specify folder : ", args.ResultPath, "Layer" , str(args.Layer), " as Attscore_STAR.csv")
+    np.savetxt(args.ResultPath + "Layer" + str(args.Layer) + "/Attscore_STAR.csv", attscore , delimiter=",",fmt='%10.5f')
+    print("==> Saving the Softmax result of 'STAR' into the specify folder : ", args.ResultPath, "Layer" , str(args.Layer), " as Soft_STAR.csv")
+    np.savetxt(args.ResultPath + "Layer" + str(args.Layer) + "/Soft_STAR.csv", scores , delimiter=",",fmt='%10.5f')
 
 # TransSeg
 elif (args.TransSeg):
@@ -152,7 +160,7 @@ elif (args.TransSeg):
     print("==> Saving the Softmax result of 'TransSeg' into the specify folder : ", args.ResultPath , " as ", "Soft_TransSeg_"+ str(args.Seg) +".csv")
     np.savetxt(args.ResultPath + "Layer" + str(args.Layer) + "/Soft_TransSeg_" + str(args.Seg) +".csv", Res , delimiter=",",fmt='%10.5f')
 
-#######################     Calculate MSE     #######################
+#######################       Calculate MSE       #######################
 if(args.CalculMSE):
     ori = read_csv(args.ResultPath+args.src1,header=None).values
     cmp = read_csv(args.ResultPath+args.src2,header=None).values
@@ -160,7 +168,7 @@ if(args.CalculMSE):
     mse = np.mean((ori-cmp)**2)
     print("==> The MSE result is : ", mse)
 
-#######################     Gen LUT     #######################
+#######################          Gen LUT          #######################
 if(args.GenCAMLUT):
     # write CAM
     print("\n####################### Gen CAM #######################\n")
@@ -194,3 +202,10 @@ if(args.GenCAMLUT):
     if(args.write_LUT):
         print("==> Saving the LUT into the specify folder : ", s_filename)
         np.savetxt(s_filename + "LUT.csv", LUT , delimiter=",",fmt='%d')
+
+#######################       Gen Data for Neuro       #######################
+if(args.TransSeg_Arch):
+    input = read_csv(args.InputPath+"input_0.csv",header=None).values
+    segments = np.array_split(input, args.Seg, axis=0)[0]
+    np.savetxt(args.InputPath + "TransSegIn_" + str(args.Seg) +".csv", segments , delimiter=",",fmt='%10.5f')
+    np.savetxt(args.InputPath + "TransSegIn_T" + str(args.Seg) +".csv", segments.transpose() , delimiter=",",fmt='%10.5f')
