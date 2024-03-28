@@ -7,14 +7,14 @@ import math
 def init_vars(src, model, SRC, TRG, opt):
     init_tok = TRG.vocab.stoi['<sos>']
     src_mask = (src != SRC.vocab.stoi['<pad>']).unsqueeze(-2)
-    e_output = model.encoder(src, src_mask)
+    e_output = model.encoder(src, src_mask, opt.Segnum)
     
     outputs = torch.LongTensor([[init_tok]], device=opt.device)
 
     trg_mask = nopeak_mask(1, opt)
     
     out = model.out(model.decoder(outputs,
-    e_output, src_mask, trg_mask))
+    e_output, src_mask, trg_mask, opt.Segnum))
     out = F.softmax(out, dim=-1)
     
     probs, ix = out[:, -1].data.topk(opt.k)
@@ -56,7 +56,7 @@ def beam_search(src, model, SRC, TRG, opt):
         trg_mask = nopeak_mask(i, opt)
 
         out = model.out(model.decoder(outputs[:,:i],
-        e_outputs, src_mask, trg_mask))
+        e_outputs, src_mask, trg_mask, opt.Segnum))
 
         out = F.softmax(out, dim=-1)
     

@@ -17,11 +17,11 @@ class Encoder(nn.Module):
         self.pe = PositionalEncoder(d_model, dropout=dropout)
         self.layers = get_clones(EncoderLayer(d_model, heads, dropout), N)
         self.norm = Norm(d_model)
-    def forward(self, src, mask):
+    def forward(self, src, mask, Segnum):
         x = self.embed(src)
         x = self.pe(x)
         for i in range(self.N):
-            x = self.layers[i](x, mask, False, i)   # Add "True" to write only Encoder
+            x = self.layers[i](x, mask, False, i, True, Segnum)   # Add "True" to write only Encoder
         return self.norm(x)
     
 class Decoder(nn.Module):
@@ -32,11 +32,11 @@ class Decoder(nn.Module):
         self.pe = PositionalEncoder(d_model, dropout=dropout)
         self.layers = get_clones(DecoderLayer(d_model, heads, dropout), N)
         self.norm = Norm(d_model)
-    def forward(self, trg, e_outputs, src_mask, trg_mask):
+    def forward(self, trg, e_outputs, src_mask, trg_mask, Segnum):
         x = self.embed(trg)
         x = self.pe(x)
-        for i in range(self.N):                  # Add "False" not to write when Decoder
-            x = self.layers[i](x, e_outputs, src_mask, trg_mask, False)
+        for i in range(self.N):                  # Add "False" not to write when Decoder & don't do segment
+            x = self.layers[i](x, e_outputs, src_mask, trg_mask, False, False, Segnum)
         return self.norm(x)
 
 class Transformer(nn.Module):

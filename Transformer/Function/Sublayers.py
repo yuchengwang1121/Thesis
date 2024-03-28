@@ -22,18 +22,35 @@ class Norm(nn.Module):
         / (x.std(dim=-1, keepdim=True) + self.eps) + self.bias
         return norm
 
-def attention(q, k, v, d_k, mask=None, dropout=None):
+def attention(q, k, v, d_k, mask=None, dropout=None,Layer=None,  Encoder=None, Segnum=0):
     scores = torch.matmul(q, k.transpose(-2, -1)) /  math.sqrt(d_k)
 
     if mask is not None:
         mask = mask.unsqueeze(1)
         scores = scores.masked_fill(mask == 0, -1e9)
-    
-    scores = F.softmax(scores, dim=-1)
+    if(Encoder and Segnum!=0):
+        segment = scores.squeeze().detach().numpy()
+        seg_size = int(segment.shape[0]/Segnum)
+
+        merge_S= []
+        SegSoft = np.empty((Segnum, Segnum, seg_size, seg_size))
+        segment_R = np.split(segment, Segnum, axis=0)
+
+        for i in range(len(segment_R)):
+            for j in range(len(segment_R)):
+                SegSoft[i][j] = F.softmax(torch.tensor(np.split(segment_R[i], Segnum, axis=1)[j]),dim=-1)
+            merge_S.append(np.concatenate(SegSoft[i], axis=1))
+        Res = np.concatenate(merge_S, axis=0)
+        # np.savetxt('./data/Soft/soft_L'+str(Layer)+ '_'+str(Segnum) + '.csv', Res , delimiter=",",fmt='%10.5f')
+        scores = torch.tensor(Res).to(v.dtype)
+    else:
+        scores = F.softmax(scores, dim=-1)
+        # if(Encoder):
+            # np.savetxt('./data/Soft/soft_L'+str(Layer)+ '_'+str(Segnum) + '.csv', scores.squeeze().detach().numpy() , delimiter=",",fmt='%10.5f')
+        
     
     if dropout is not None:
         scores = dropout(scores)
-        
     output = torch.matmul(scores, v)
     return output
 
@@ -52,15 +69,13 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.out = nn.Linear(d_model, d_model)
     
-    def forward(self, q, k, v, mask=None, Writedata=None, Layer=0):
+    def forward(self, q, k, v, mask=None, Writedata=None, Layer=0, Encoder=None, Segnum=0):
         w_filename = "./Weight/weight" + str(Layer)
         bs = q.size(0)
-        # print("===> The Bq is ", q.size(), " with self.h ", self.h, " with d_k ",self.d_k)
         # perform linear operation and split into N heads
         k = self.k_linear(k).view(bs, -1, self.h, self.d_k)
         q = self.q_linear(q).view(bs, -1, self.h, self.d_k)
         v = self.v_linear(v).view(bs, -1, self.h, self.d_k)
-        # print("===> The Aq is ", q.size())
         if(Writedata):
             print("===> Writing the weight Q,K,V in ", w_filename)
             np.savetxt(w_filename + "_Q.csv", self.q_linear.weight.detach().numpy() , delimiter=",",fmt='%10.5f')
@@ -73,7 +88,7 @@ class MultiHeadAttention(nn.Module):
         # print("===> The q.transpose is ", q.size())
 
         # calculate attention using function we will define next
-        scores = attention(q, k, v, self.d_k, mask, self.dropout)
+        scores = attention(q, k, v, self.d_k, mask, self.dropout, Layer=Layer ,Encoder=Encoder, Segnum=Segnum)
         # concatenate heads and put through final linear layer
         concat = scores.transpose(1,2).contiguous()\
         .view(bs, -1, self.d_model)

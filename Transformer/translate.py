@@ -14,6 +14,7 @@ from Function.Beam import beam_search
 from nltk.corpus import wordnet
 from torch.autograd import Variable
 import re
+# import string
 
 def get_synonym(word, SRC):
     syns = wordnet.synsets(word)
@@ -42,7 +43,7 @@ def translate_sentence(sentence, model, opt, SRC, TRG):
         else:
             indexed.append(get_synonym(tok, SRC))
     sentence = Variable(torch.LongTensor([indexed]))
-    print("==>The sentence is : ", sentence, " with size ", sentence.size())
+    # print("==>The sentence is : ", sentence, " with size ", sentence.size())
 
     sentence = beam_search(sentence, model, SRC, TRG, opt)
 
@@ -68,14 +69,15 @@ def main():
     parser.add_argument('-n_layers', type=int, default=3)
     parser.add_argument('-src_lang', required=True)
     parser.add_argument('-trg_lang', required=True)
-    parser.add_argument('-heads', type=int, default=8)
+    parser.add_argument('-heads', type=int, default=1)
     parser.add_argument('-dropout', type=int, default=0.1)
     parser.add_argument('-no_cuda', action='store_true')
     parser.add_argument('-floyd', action='store_true')
+    parser.add_argument('-Segnum', type=int, default=0)
     
     opt = parser.parse_args()
     opt.device = 'cpu'
-
+    print("The opt is", opt)
     # opt.device = 'cuda' if opt.no_cuda is False else 'cpu'
  
     assert opt.k > 0
@@ -83,21 +85,55 @@ def main():
 
     SRC, TRG = create_fields(opt)
     model = get_model(opt, len(SRC.vocab), len(TRG.vocab))
+    ans_pointer = 0
+    hit = 0
     
-    while True:
-        opt.text =input("Enter a sentence to translate (type 'f' to load from file, or 'q' to quit):\n")
-        if opt.text=="q":
-            break
-        if opt.text=='f':
-            fpath =input("Enter a sentence to translate (type 'f' to load from file, or 'q' to quit):\n")
-            try:
-                opt.text = ' '.join(open(opt.text, encoding='utf-8').read().split('\n'))
-            except:
-                print("error opening or reading text file")
-                continue
-        print("=> Input String is : " + opt.text)
+    # while True:
+    #     opt.text =input("Enter a sentence to translate (type 'f' to load from file, or 'q' to quit):\n")
+    #     if opt.text=="q":
+    #         break
+    #     if opt.text=='f':
+    #         fpath =input("Enter a sentence to translate (type 'f' to load from file, or 'q' to quit):\n")
+    #         try:
+    #             opt.text = ' '.join(open(opt.text, encoding='utf-8').read().split('\n'))
+    #         except:
+    #             print("error opening or reading text file")
+    #             continue
+    #     # print("=> Input String is : " + opt.text)
+    #     phrase = translate(opt, model, SRC, TRG)
+    #     print('> '+ phrase + '\n')
+
+    
+
+    with open('./data/english.txt', 'r') as EF:
+        English_content = EF.readlines()
+    with open('./data/french.txt', 'r') as FF:
+        French_content = FF.readlines()
+
+ 
+    for src in English_content[:9]:
+        opt.text = src
         phrase = translate(opt, model, SRC, TRG)
-        print('> '+ phrase + '\n')
+        print("After pre=>", phrase)
+        print("After Ans pre=>", ans)
+        if(phrase == ans):
+            hit += 1
+        ans_pointer += 1
+
+    # hex_list = [hex(ord(char)) for char in preprocess_string(phrase)]
+    # hex_list2 = [hex(ord(char)) for char in preprocess_string(French_content[ans_pointer])]
+    # for hex_value in hex_list:
+    #     print(hex_value )
+    # for hex_value in hex_list2:
+    #     print(hex_value )
+    # print(len(preprocess_string(phrase)))
+    # print(len(preprocess_string(French_content[ans_pointer])))
+    print("The hit is", hit, " with ", ans_pointer)
+    print("The over accuracy is ", round((hit/ans_pointer)*100, 3))
+                
+# def preprocess_string(s):
+#     s = s.translate(str.maketrans('', '', string.punctuation + ' '))
+#     return s
 
 if __name__ == '__main__':
     main()
