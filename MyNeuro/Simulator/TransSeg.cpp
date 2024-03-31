@@ -9,6 +9,7 @@
 #include <sstream>
 #include <chrono>
 #include <algorithm>
+#include <iomanip>
 #include "../headerfile/function.h"
 #include "../headerfile/constant.h"
 #include "../headerfile/formula.h"
@@ -49,7 +50,8 @@ int main(int argc, char *argv[])
     // define weight/input/memory precision from wrapper
     param->synapseBit = atoi(argv[3]);  // precision of synapse weight
     param->numBitInput = atoi(argv[4]); // precision of input neural activation
-	
+	int Segnum = 16;						//<=== Need Modify ===>
+
     if (param->cellBit > param->synapseBit)
     {
         cout << "ERROR!: Memory precision is even higher than synapse precision, please modify 'cellBit' in Param.cpp!" << endl;
@@ -179,27 +181,24 @@ int main(int argc, char *argv[])
     subArray->maxNumWritePulse = MAX(cell.maxNumLevelLTP, cell.maxNumLevelLTD);
 
 	/*** User defined num of elements ***/
-	int numSubArrayRow = 4;		// The number of subarray's row						//<=== Need Modify ===>
-	int numSubArrayCol = 3; 	// The number of subarray's col
-	int numbusRow = 4;			// The number of bus's connect to addertree in row	//<=== Need Modify ===>
-	int numbusCol = 1; 			// The number of bus's connect to addertree in col
-	int numsegment = 4;			// The number of segment after input partition		//<=== Need Modify ===>
-	int nummuxin = 1;			// The number of output before mux
-	int nummuxout = 2;			// The number of output after mux
+	int numSubArrayRow = Segnum;		// The number of subarray's row
+	int numSubArrayCol = 1; 			// The number of subarray's col
+	int nummuxin = 1;					// The number of output before mux
+	int nummuxout = 2;					// The number of output after mux
 	double resTg = cell.resistanceOn * IR_DROP_TOLERANCE + cell.resistanceOn;
 	
 	/*** initialize modules ***/
 	subArray->Initialize(numRow, numCol, param->unitLengthWireResistance);        // initialize subArray
 	if (param->parallelRead) {
-		adderTreeCM->Initialize(numbusRow, log2((double)param->levelOutput)+param->numBitInput+param->numColPerSynapse+1, ceil((double)numbusCol*(double)numCol/(double)param->numColMuxed));
+		adderTreeCM->Initialize(Segnum, log2((double)param->levelOutput)+param->numBitInput+param->numColPerSynapse+1, ceil((double)numCol/(double)param->numColMuxed));
 	} else {
-		adderTreeCM->Initialize(numbusRow, (log2((double)numRow)+param->cellBit-1)+param->numBitInput+param->numColPerSynapse+1, ceil((double)numbusCol*(double)numCol/(double)param->numColMuxed));
+		adderTreeCM->Initialize(Segnum, (log2((double)numRow)+param->cellBit-1)+param->numBitInput+param->numColPerSynapse+1, ceil((double)numCol/(double)param->numColMuxed));
 	}
 	
 	// For Buffer
 	bufferInputCM->Initialize(param->numBitInput*numRow, 15e9);
-	bufferReg1->Initialize(param->numBitInput*numRow/numsegment, 15e9);
-	bufferReg2->Initialize(param->numBitInput*numRow/numsegment, 15e9);
+	bufferReg1->Initialize(param->numBitInput*numRow, 15e9);
+	bufferReg2->Initialize(param->numBitInput*numRow/Segnum, 15e9);
 	bufferSoft->Initialize(param->numBitInput*numRow, 15e9);
 	if (param->parallelRead) {
 		bufferOutputCM->Initialize((numCol/param->numColMuxed)*(log2((double)param->levelOutput)+param->numBitInput+param->numColPerSynapse+adderTreeCM->numStage), 15e9);
@@ -208,45 +207,46 @@ int main(int argc, char *argv[])
 	}
 	
 	// For Bus
-	busInputCM->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
-	busToReg1->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
-	busToMT1->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
-	busToReg2->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
-	busToMT2->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
-	busToSoft->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
-	busSoftToInput->Initialize(HORIZONTAL, numbusRow, numbusCol, 0, numRow, subArray->height, subArray->width);
-	busRingBroadcast->Initialize(VERTICAL, numbusRow, numbusCol, 0, numCol, subArray->height, subArray->width);
-	busOutputCM->Initialize(VERTICAL, numbusRow, numbusCol, 0, numCol, subArray->height, subArray->width);
+	busInputCM->Initialize(HORIZONTAL, 1, 1, 0, numRow, subArray->height, subArray->width);
+	busToReg1->Initialize(HORIZONTAL, 1, 1, 0, numRow, subArray->height, subArray->width);
+	busToMT1->Initialize(HORIZONTAL, 1, 1, 0, numRow, subArray->height, subArray->width);
+	busToReg2->Initialize(HORIZONTAL, Segnum, 1, 0, numRow/Segnum, subArray->height, subArray->width);
+	busToMT2->Initialize(HORIZONTAL, Segnum, 1, 0, numRow/Segnum, subArray->height, subArray->width);
+	busToSoft->Initialize(HORIZONTAL, Segnum, 1, 0, numRow/Segnum, subArray->height, subArray->width);
+	busSoftToInput->Initialize(HORIZONTAL, 1, 1, 0, numRow, subArray->height, subArray->width);
+	busRingBroadcast->Initialize(VERTICAL, 1, 1, 0, numCol, subArray->height, subArray->width);
+	busOutputCM->Initialize(VERTICAL, 1, 1, 0, numCol, subArray->height, subArray->width);
 
 	//For mux
 	mux->Initialize(nummuxout, nummuxin, resTg, 0);
 
-    cout << "number of subarray's row is " << numSubArrayRow << " with number of subarray's col is " << numSubArrayCol << endl;
-	cout << "number of bus's row is " << numbusRow << " with number of bus's col is " << numbusCol << endl;
+
+    cout << " ----------- Ring : number of subarray's row is " << numSubArrayRow << " with number of subarray's col is " << numSubArrayCol << endl;
+	cout << " ----------- number of bus's row is " << Segnum << " with number of bus's col is " << 1 << endl;
     cout << endl;
     cout << "---------------------------- FloorPlan Done ------------------------------" << endl;
-    cout << endl;
-
+	cout << endl;
     /******************************************************** Initialize ********************************************************/
 
     /****************************************************** CalculateArea *******************************************************/
-    double Area, AreaArray, AreaADC, AreaAccum, AreaOther;
+    double Area, AreaArray, AreaADC, AreaAccum, AreaOther,OverallArea;
 	double height = 0;
 	double width = 0;
 	double busarea = 0;
 	double bufferarea = 0;
 	double Totalarea = 0;
 	double widthArray = 0;
+	double totalnumofsubArray = 0;
 	vector<double> areaResults;
 	
 	subArray->CalculateArea();
 	adderTreeCM->CalculateArea(NULL, subArray->width, NONE);
 	//buffer
-	bufferInputCM->CalculateArea(numSubArrayRow*subArray->height, NULL, NONE);
-	bufferReg1->CalculateArea(numSubArrayRow*subArray->height, NULL, NONE);
-	bufferReg2->CalculateArea(numSubArrayRow*subArray->height, NULL, NONE);
-	bufferSoft->CalculateArea(numSubArrayRow*subArray->height, NULL, NONE);
-	bufferOutputCM->CalculateArea(NULL, numSubArrayCol*subArray->width, NONE);
+	bufferInputCM->CalculateArea(numRow*subArray->height, NULL, NONE);
+	bufferReg1->CalculateArea(numRow*subArray->height, NULL, NONE);
+	bufferReg2->CalculateArea((numRow*subArray->height)/Segnum, NULL, NONE);
+	bufferSoft->CalculateArea(numRow*subArray->height, NULL, NONE);
+	bufferOutputCM->CalculateArea(NULL, numCol*subArray->width, NONE);
 	//bus
     busInputCM->CalculateArea(1, true); 
     busOutputCM->CalculateArea(1, true);
@@ -259,29 +259,48 @@ int main(int argc, char *argv[])
 	busRingBroadcast->CalculateArea(1, true);
 	//mux
 	widthArray = (double)numCol * cell.widthInFeatureSize * tech.featureSize;
+	totalnumofsubArray = numSubArrayRow*numSubArrayCol + 2;
 	mux->CalculateArea(NULL, widthArray, NONE);
 	
 	busarea = busInputCM->area + busOutputCM->area + busToMT1->area + busToMT2->area + 
 			  busToReg1->area + busToReg2->area + busToSoft->area + busSoftToInput->area + busRingBroadcast->area;
-	bufferarea = bufferInputCM->area + bufferOutputCM->area + numSubArrayRow * bufferReg1->area +
+	bufferarea = bufferInputCM->area + bufferOutputCM->area + bufferReg1->area +
 				 numSubArrayRow *bufferReg2->area + bufferSoft->area;
 
-    Totalarea = subArray->usedArea * (numSubArrayRow*numSubArrayCol) + adderTreeCM->area + bufferarea + busarea + numSubArrayRow * mux->area;
-    
+	// cout << " ----------- Buffer Area -----------" << endl;
+	// cout << " ----------- bufferInputCM is : " << bufferInputCM->area * 1e12 << endl;
+	// cout << " ----------- bufferOutputCM is : " << bufferOutputCM->area * 1e12 << endl;
+	// cout << " ----------- bufferReg1 is : " << bufferReg1->area * 1e12 << endl;
+	// cout << " ----------- bufferReg2 is : " << bufferReg2->area * 1e12  << endl;
+	// cout << " ----------- bufferSoft is : " << bufferSoft->area * 1e12 << endl;
+	// cout << " ----------- numSubArrayRow is : " << numSubArrayRow << endl;
+
+    Totalarea = subArray->usedArea * totalnumofsubArray + adderTreeCM->area + bufferarea + busarea + numSubArrayRow * mux->area;
+    cout << " ----------- The subArray->usedArea is : " << subArray->usedArea  * 1e12 << endl;
+	cout << " ----------- The subArray Total num is : " << totalnumofsubArray << endl;
+	cout << " ----------- The bufferarea is : \t " << bufferarea  * 1e12 << endl;
+	cout << " ----------- The busarea is : \t\t " << busarea  * 1e12 << endl;
+	cout << " ----------- numSubArrayRow * mux->area : " << numSubArrayRow * mux->area  * 1e12 << endl;
+	cout << endl;
+
+
     height = sqrt(Totalarea);
     width = Totalarea/(height);
     
     areaResults.push_back(Totalarea);
-    areaResults.push_back(subArray->areaADC*(numSubArrayRow*numSubArrayCol));
-    areaResults.push_back(subArray->areaAccum*(numSubArrayRow*numSubArrayCol)+adderTreeCM->area);
-    areaResults.push_back(subArray->areaOther*(numSubArrayRow*numSubArrayCol)+ bufferInputCM->area + bufferOutputCM->area);
-    areaResults.push_back(subArray->areaArray*(numSubArrayRow*numSubArrayCol));
+    areaResults.push_back(subArray->areaADC*(numRow*numCol));
+    areaResults.push_back(subArray->areaAccum*(numRow*numCol)+adderTreeCM->area);
+    areaResults.push_back(subArray->areaOther*(numRow*numCol)+ bufferInputCM->area + bufferOutputCM->area);
+    areaResults.push_back(subArray->areaArray*(numRow*numCol));
 	
     Area        = areaResults[0];
     AreaArray   = areaResults[1];
     AreaADC     = areaResults[2];
     AreaAccum   = areaResults[3];
     AreaOther   = areaResults[4];
+	for (double area : areaResults) {
+        OverallArea += area;
+    }
 
     cout << "-------------------------------------- Hardware Performance --------------------------------------" << endl;
 
@@ -306,22 +325,21 @@ int main(int argc, char *argv[])
     double numComputation = 0;
 	numComputation = 2*(netStructure[0][0] * netStructure[0][1] * netStructure[0][2] * netStructure[0][3] * netStructure[0][4] * netStructure[0][5]);
     /*** define how many subArray are used to map the whole layer ***/
-	double SWReadLatency, SWReadDynamicEnergy, SWLeakage, SWLatencyADC, SWLatencyAccum, SWLatencyOther, SWEnergyADC, SWEnergyAccum, SWEnergyOther;
+	double IWReadLatency, IWReadDynamicEnergy, IWLeakage, IWLatencyADC, IWLatencyAccum, IWLatencyOther, IWEnergyADC, IWEnergyAccum, IWEnergyOther;
 	double STReadLatency, STReadDynamicEnergy, STLeakage, STLatencyADC, STLatencyAccum, STLatencyOther, STEnergyADC, STEnergyAccum, STEnergyOther;
 	double SSReadLatency, SSReadDynamicEnergy, SSLeakage, SSLatencyADC, SSLatencyAccum, SSLatencyOther, SSEnergyADC, SSEnergyAccum, SSEnergyOther;
 	double ReadLatency, ReadDynamicEnergy, Leakage, LatencyADC, LatencyOther, LatencyAccum, EnergyADC, EnergyAccum, EnergyOther;
 	double BufferLatency, LeakageEnergy, BufferDynamicEnergy, BusLatency, BusDynamicEnergy;
 
-	// Segment * Weight's P&L  
-	SWReadLatency		=0;
-	SWReadDynamicEnergy	=0;
-	SWLeakage			=0;
-	SWLatencyADC		=0;
-	SWLatencyAccum		=0;
-	SWLatencyOther		=0;
-	SWEnergyADC			=0;
-	SWEnergyAccum		=0;
-	SWEnergyOther		=0;
+	// Input * Weight's P&L  
+	IWReadLatency		=0;
+	IWReadDynamicEnergy	=0;
+	IWLeakage			=0;
+	IWLatencyADC		=0;
+	IWLatencyOther		=0;
+	IWEnergyADC			=0;
+	IWEnergyAccum		=0;
+	IWEnergyOther		=0;
 	// Segment * Transepose's P&L
     STReadLatency 		= 0;
 	STReadDynamicEnergy = 0;
@@ -368,33 +386,40 @@ int main(int argc, char *argv[])
     int numRowMatrix = min(param->numRowSubArray, weightMatrixRow);
     int numColMatrix = min(param->numColSubArray, weightMatrixCol);
 	int numInVector = (netStructure[0][0]-netStructure[0][3]+1)/netStructure[0][7]*(netStructure[0][1]-netStructure[0][4]+1)/netStructure[0][7];
-	int numInSeg = numInVector/numsegment;
+	int numInSeg = numInVector/Segnum;
 	
 	// load in whole file 
 	vector<vector<double>> weightMemory, transMemory, inputMemory;
-	vector<vector<double>> inputVector, softVector;
+	vector<vector<double>> inputVector, softVector, segVector;
 	weightMemory = LoadInWeightData(argv[5], 1, 1, param->maxConductance, param->minConductance);
-	transMemory = LoadInWeightData(argv[6], 1, 1, param->maxConductance, param->minConductance);
-	inputMemory = LoadInWeightData(argv[7], 1, 1, param->maxConductance, param->minConductance);
-	inputVector = LoadInInputData(argv[8]);
-	softVector = LoadInInputData(argv[9]);
+	transMemory  = LoadInWeightData(argv[6], 1, 1, param->maxConductance, param->minConductance);
+	inputMemory  = LoadInWeightData(argv[7], 1, 1, param->maxConductance, param->minConductance);
+	inputVector  = LoadInInputData(argv[7]);
+	segVector    = LoadInInputData(argv[8]);
+	softVector   = LoadInInputData(argv[9]);
 
     /*** assign weight and input to specific subArray ***/
-    vector<vector<double>> subArrayWeight,subArrayTrans,subArrayIn;
-	vector<vector<double>> subArraySeg, subArraySoft;
+    vector<vector<double>> subArrayWeight,subArrayTransWeight,subArrayInWeight;
+	vector<vector<double>> subArraySeg, subArraySoft, subArrayInput;
 
-    subArrayWeight = CopySubArray(weightMemory, 0, 0, numRowMatrix, numColMatrix);	//128*128
-	subArrayTrans = CopySubArray(transMemory, 0, 0, numRowMatrix, numInSeg);	//128*4
-	subArrayIn  = CopySubArray(inputMemory, 0, 0, numInSeg, numRowMatrix);		//4*128
-	subArraySeg = CopySubInput(inputVector, 0, numInSeg, numRowMatrix);			//4*128
-	subArraySoft = CopySubInput(softVector, 0, numInSeg, numInSeg);				//4*4
-	// cout << "CopySubInput : " << endl;
+    subArrayWeight 		= CopySubArray(weightMemory, 0, 0, numRowMatrix, numColMatrix);	//128*128
+	subArrayTransWeight = CopySubArray(transMemory, 0, 0, numRowMatrix, numInSeg);		//128*4
+	subArrayInWeight  	= CopySubArray(inputMemory, 0, 0, numInVector, numRowMatrix);	//16*128
+	subArrayInput 		= CopySubInput(inputVector, 0, numInVector, numRowMatrix);		//16*128
+	subArraySeg 		= CopySubInput(segVector, 0, numInSeg, numRowMatrix);			//4*128
+	subArraySoft 		= CopySubInput(softVector, 0, numInSeg, numInSeg);				//4*4
+	// cout << "subArrayWeight : " << subArrayWeight.size() << endl;
+	// cout << "subArrayTransWeight : " << subArrayTransWeight.size() << endl;
+	// cout << "subArrayInWeight : " << subArrayInWeight.size() << endl;
+	// cout << "subArrayInputt : " << subArrayInput.size() << endl;
+	// cout << "subArraySeg : " << subArraySeg.size() << endl;
+	// cout << "subArraySoft : " << subArraySoft.size() << endl;
 	
-    for (int k=0; k<numInSeg; k++) {                 // calculate WeightsubArray through the total Segment vectors
+	for (int k=0; k<numInVector; k++) {                 // Calculate Q,k 
         // cout << "k is : " << k << " with numInVector " << numInVector << endl;
 		double activityRowRead = 0;
         vector<double> input;
-        input = GetInputVector(subArraySeg, k, &activityRowRead);
+        input = GetInputVector(subArrayInput, k, &activityRowRead);
 		subArray->activityRowRead = activityRowRead;
         int cellRange = pow(2, param->cellBit);
         if (param->parallelRead) {
@@ -414,20 +439,20 @@ int main(int argc, char *argv[])
         // cout << "CalculatePower" << endl;
 		subArray->CalculatePower(columnResistance, rowResistance);
         
-        SWReadLatency += subArray->readLatency;
-        SWReadDynamicEnergy += subArray->readDynamicEnergy;
-        SWLeakage += subArray->leakage;
+        IWReadLatency += subArray->readLatency;
+        IWReadDynamicEnergy += subArray->readDynamicEnergy;
+        IWLeakage += subArray->leakage;
+		
         
-        SWLatencyADC += subArray->readLatencyADC;
-        SWLatencyAccum += subArray->readLatencyAccum;
-        SWLatencyOther += subArray->readLatencyOther;
+        IWLatencyADC += subArray->readLatencyADC;
+        IWLatencyAccum += subArray->readLatencyAccum;
+        IWLatencyOther += subArray->readLatencyOther;
         
-        SWEnergyADC += subArray->readDynamicEnergyADC;
-        SWEnergyAccum += subArray->readDynamicEnergyAccum;
-        SWEnergyOther += subArray->readDynamicEnergyOther;
+        IWEnergyADC += subArray->readDynamicEnergyADC;
+        IWEnergyAccum += subArray->readDynamicEnergyAccum;
+        IWEnergyOther += subArray->readDynamicEnergyOther;
     }
 
-	
     for (int k=0; k<numInSeg; k++) {                 // calculate transposesubArray through the total segment vectors
         // cout << "k is : " << k << " with numInVector " << numInVector << endl;
 		double activityRowRead = 0;
@@ -443,9 +468,9 @@ int main(int argc, char *argv[])
         
         vector<double> columnResistance, rowResistance;
 		// cout << "columnResistance" << endl;
-        columnResistance = GetColumnResistance(input, subArrayTrans, cell, param->parallelRead, subArray->resCellAccess);
+        columnResistance = GetColumnResistance(input, subArrayTransWeight, cell, param->parallelRead, subArray->resCellAccess);
         // cout << "rowResistance" << endl;
-		rowResistance = GetRowResistance(input, subArrayTrans, cell, param->parallelBP, subArray->resCellAccess);
+		rowResistance = GetRowResistance(input, subArrayTransWeight, cell, param->parallelBP, subArray->resCellAccess);
         
 	    // cout << "CalculateLatency" << endl;
         subArray->CalculateLatency(1e20, columnResistance, rowResistance);
@@ -455,6 +480,7 @@ int main(int argc, char *argv[])
         STReadLatency += subArray->readLatency;
         STReadDynamicEnergy += subArray->readDynamicEnergy;
         STLeakage += subArray->leakage;
+		// cout << "at i "<< k <<"STLeakage is"<<STLeakage<<endl;
         
         STLatencyADC += subArray->readLatencyADC;
         STLatencyAccum += subArray->readLatencyAccum;
@@ -465,7 +491,7 @@ int main(int argc, char *argv[])
         STEnergyOther += subArray->readDynamicEnergyOther;
     }
 
-	for (int k=0; k<numInSeg; k++) {                 // calculate segmentsubArray through the total softmax vectors
+	for (int k=0; k<Segnum; k++) {                 // calculate segmentsubArray through the total softmax vectors
         // cout << "k is : " << k << " with numInVector " << numInVector << endl;
 		double activityRowRead = 0;
         vector<double> input;
@@ -480,9 +506,9 @@ int main(int argc, char *argv[])
         
         vector<double> columnResistance, rowResistance;
 		// cout << "columnResistance" << endl;
-        columnResistance = GetColumnResistance(input, subArrayIn, cell, param->parallelRead, subArray->resCellAccess);
+        columnResistance = GetColumnResistance(input, subArrayInWeight, cell, param->parallelRead, subArray->resCellAccess);
         // cout << "rowResistance" << endl;
-		rowResistance = GetRowResistance(input, subArrayIn, cell, param->parallelBP, subArray->resCellAccess);
+		rowResistance = GetRowResistance(input, subArrayInWeight, cell, param->parallelBP, subArray->resCellAccess);
         
 	    // cout << "CalculateLatency" << endl;
         subArray->CalculateLatency(1e20, columnResistance, rowResistance);
@@ -492,6 +518,7 @@ int main(int argc, char *argv[])
         SSReadLatency += subArray->readLatency;
         SSReadDynamicEnergy += subArray->readDynamicEnergy;
         SSLeakage += subArray->leakage;
+		// cout << "at i "<< k <<"SSLeakage is"<<SSLeakage<<endl;
         
         SSLatencyADC += subArray->readLatencyADC;
         SSLatencyAccum += subArray->readLatencyAccum;
@@ -518,9 +545,9 @@ int main(int argc, char *argv[])
 
     bufferInputCM->CalculatePower(weightMatrixRow/param->numRowPerSynapse, numInVector);
     bufferOutputCM->CalculatePower(weightMatrixCol/param->numColPerSynapse*adderTreeCM->numAdderBit, numInVector/param->numBitInput);
-	bufferReg1->CalculatePower(weightMatrixRow/param->numRowPerSynapse, numInSeg*numsegment);
-	bufferReg2->CalculatePower(weightMatrixRow/param->numRowPerSynapse, numInSeg*numsegment);
-	bufferSoft->CalculatePower(weightMatrixRow/param->numRowPerSynapse, numInSeg*numsegment);
+	bufferReg1->CalculatePower(weightMatrixRow/param->numRowPerSynapse, numInSeg*Segnum);
+	bufferReg2->CalculatePower(weightMatrixRow/param->numRowPerSynapse, numInSeg*Segnum);
+	bufferSoft->CalculatePower(weightMatrixRow/param->numRowPerSynapse, numInSeg*Segnum);
     
     busInputCM->CalculateLatency(weightMatrixRow/param->numRowPerSynapse*numInVector/(busInputCM->busWidth));
 	busToMT1->CalculateLatency(weightMatrixRow/param->numRowPerSynapse*numInSeg/(busToMT1->busWidth));
@@ -550,14 +577,14 @@ int main(int argc, char *argv[])
         busRingBroadcast->CalculatePower(busRingBroadcast->numRow*busRingBroadcast->busWidth, (weightMatrixCol/param->numColPerSynapse*(log2((double)param->numRowSubArray)+param->cellBit-1)*numInSeg/param->numBitInput)/(busRingBroadcast->numRow*busRingBroadcast->busWidth));
     }
 
-    Leakage = numsegment*(3*SWLeakage + STLeakage +	SSLeakage) + //Weight Q,K,V & transpose I & I
-			  adderTreeCM->leakage +							 //AdderTree
+    Leakage = 3*IWLeakage +  Segnum*STLeakage +  SSLeakage + 							//Weight Q,K,V & transpose I & I
+			  adderTreeCM->leakage +							 						//AdderTree
 			  bufferInputCM->leakage + bufferOutputCM->leakage + bufferSoft->leakage +	//Buffer
-			  numsegment*(bufferReg1->leakage + bufferReg2->leakage);
+			  bufferReg1->leakage + Segnum*(bufferReg2->leakage);
 	
-	LatencyADC = SWLatencyADC + STLatencyADC + SSLatencyADC;
-	LatencyOther = SWLatencyOther + STLatencyOther + SSLatencyOther;
-	LatencyAccum = SWLatencyAccum + STLatencyAccum + SSLatencyAccum;
+	LatencyADC = 3*IWLatencyADC + STLatencyADC + SSLatencyADC;
+	LatencyOther = 3*IWLatencyOther + STLatencyOther + SSLatencyOther;
+	LatencyAccum = 3*IWLatencyAccum + STLatencyAccum + SSLatencyAccum;
 	BufferLatency =  bufferReg1 -> readLatency + bufferReg2->readLatency + 
 					 bufferInputCM->readLatency + bufferOutputCM->readLatency + bufferSoft->readLatency;
     BufferDynamicEnergy = bufferReg1 -> readDynamicEnergy + bufferReg2->readDynamicEnergy + 
@@ -571,54 +598,52 @@ int main(int argc, char *argv[])
 				  		busRingBroadcast->readDynamicEnergy + busSoftToInput->readDynamicEnergy + busToSoft->readDynamicEnergy +
 						adderTreeCM->readDynamicEnergy;  
 	
-	EnergyADC = SWEnergyADC + STEnergyADC + SSEnergyADC;
-	EnergyOther = SWEnergyOther + STEnergyOther + SSEnergyOther;
-	EnergyAccum = SWEnergyAccum + STEnergyAccum + SSEnergyAccum;
-    ReadLatency = SWReadLatency + STReadLatency + SSReadLatency + BufferLatency + BusLatency;
-    ReadDynamicEnergy = SWReadDynamicEnergy + STReadDynamicEnergy + SSReadDynamicEnergy + BufferDynamicEnergy + BusDynamicEnergy;
-    LeakageEnergy = Leakage * ReadLatency;
-						
-    
+	EnergyADC = IWEnergyADC + pow(Segnum,2)*STEnergyADC + SSEnergyADC;			//num of seg per time * do all seg per total
+	EnergyOther = IWEnergyOther + pow(Segnum,2)*STEnergyOther + SSEnergyOther;
+	EnergyAccum = IWEnergyAccum + pow(Segnum,2)*STEnergyAccum + SSEnergyAccum;
+    ReadLatency = 3*IWReadLatency + STReadLatency + SSReadLatency + BufferLatency + BusLatency;
+    ReadDynamicEnergy = IWReadDynamicEnergy + pow(Segnum,2)*STReadDynamicEnergy + SSReadDynamicEnergy + BufferDynamicEnergy + BusDynamicEnergy;
     LeakageEnergy = Leakage * ReadLatency;
     
 
     cout << "------------------------------ Summary --------------------------------" << endl;
     cout << endl;
-    cout << "Area : " << Area * 1e12 << "um^2" << endl;
-    cout << "Total CIM (Forward+Activation Gradient) array : " << AreaArray * 1e12 << "um^2" << endl;
-    cout << "Total ADC (or S/As and precharger for SRAM) Area on chip : " << AreaADC * 1e12 << "um^2" << endl;
-    cout << "Total Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) on chip : " << AreaAccum * 1e12 << "um^2" << endl;
-    cout << "Other Peripheries (e.g. decoders, mux, switchmatrix, buffers, pooling and activation units) : " << AreaOther * 1e12 << "um^2" << endl;
-    cout << endl;
+    cout << " ===========>> Area : " << Area * 1e12 << "um^2" << endl;
+    cout << " ----------- Total CIM (Forward+Activation Gradient) array : " << AreaArray * 1e12 << "um^2" << endl;
+    cout << " ----------- Total ADC (or S/As and precharger for SRAM) Area on chip : " << AreaADC * 1e12 << "um^2" << endl;
+    cout << " ----------- Total Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) on chip : " << AreaAccum * 1e12 << "um^2" << endl;
+    cout << " ----------- Other Peripheries (e.g. decoders, mux, switchmatrix, buffers, pooling and activation units) : " << AreaOther * 1e12 << "um^2" << endl;
+    cout << " ----------- OverallArea : " << OverallArea * 1e12 << "um^2" << endl;
+	cout << endl;
     cout << "-----------------------------------Chip layer-by-layer Estimation---------------------------------" << endl;
 
-    cout << "readLatency  is: " << ReadLatency * 1e9 << "ns" << endl;
-    cout << "readDynamicEnergy  is: " << ReadDynamicEnergy * 1e12 << "pJ" << endl;
-    cout << "leakage Energy (Leakage * ReadLatency) is: " << LeakageEnergy * 1e12 << "pJ" << endl;
-    cout << "leakage Power (Leakage) is: " << Leakage * 1e6 << "uW" << endl;
+    cout << " ----------- readLatency  is: " << ReadLatency * 1e9 << "ns" << endl;
+    cout << " ----------- readDynamicEnergy  is: " << ReadDynamicEnergy * 1e12 << "pJ" << endl;
+    cout << " ===========>> leakage Energy (Leakage * ReadLatency) is: " << LeakageEnergy * 1e12 << "pJ" << endl;
+    cout << " ===========>> leakage Power (Leakage) is: " << Leakage * 1e6 << "uW" << endl;
     cout << endl;
     cout << "************************ Breakdown of Latency and Dynamic Energy *************************" << endl;
     cout << endl;
-    cout << "----------- ADC (or S/As and precharger for SRAM) readLatency is : " << LatencyADC * 1e9 << "ns" << endl;
-    cout << "----------- Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) readLatency is : " << LatencyAccum * 1e9 << "ns" << endl;
-    cout << "----------- Synaptic Array w/o ADC (Forward + Activate Gradient) readLatency is : " << LatencyOther * 1e9 << "ns" << endl;
-    cout << "----------- Buffer readLatency is: " << BufferLatency * 1e9 << "ns" << endl;
-	cout << "----------- Bus readLatency is: " << BusLatency * 1e9 << "ns" << endl;
+    cout << " ----------- ADC (or S/As and precharger for SRAM) readLatency is : " << LatencyADC * 1e9 << "ns" << endl;
+    cout << " ----------- Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) readLatency is : " << LatencyAccum * 1e9 << "ns" << endl;
+    cout << " ----------- Synaptic Array w/o ADC (Forward + Activate Gradient) readLatency is : " << LatencyOther * 1e9 << "ns" << endl;
+    cout << " ----------- Buffer readLatency is: " << BufferLatency * 1e9 << "ns" << endl;
+	cout << " ----------- Bus readLatency is: " << BusLatency * 1e9 << "ns" << endl;
     cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
-    cout << "----------- ADC (or S/As and precharger for SRAM) readDynamicEnergy is : " << EnergyADC * 1e12 << "pJ" << endl;
-    cout << "----------- Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) readDynamicEnergy is : " << EnergyAccum * 1e12 << "pJ" << endl;
-    cout << "----------- Synaptic Array w/o ADC (Forward + Activate Gradient) readDynamicEnergy is : " << EnergyOther * 1e12 << "pJ" << endl;
-    cout << "----------- Buffer readDynamicEnergy is: " << BufferDynamicEnergy * 1e12 << "pJ" << endl;
-	cout << "----------- Bus readDynamicEnergy is: " << BusDynamicEnergy * 1e9 << "ns" << endl;
+    cout << " ----------- ADC (or S/As and precharger for SRAM) readDynamicEnergy is : " << EnergyADC * 1e12 << "pJ" << endl;
+    cout << " ----------- Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) readDynamicEnergy is : " << EnergyAccum * 1e12 << "pJ" << endl;
+    cout << " ----------- Synaptic Array w/o ADC (Forward + Activate Gradient) readDynamicEnergy is : " << EnergyOther * 1e12 << "pJ" << endl;
+    cout << " ----------- Buffer readDynamicEnergy is: " << BufferDynamicEnergy * 1e12 << "pJ" << endl;
+	cout << " ----------- Bus readDynamicEnergy is: " << BusDynamicEnergy * 1e9 << "ns" << endl;
     cout << endl;
     cout << "************************ Breakdown of Latency and Dynamic Energy *************************" << endl;
     cout << endl;
     cout << endl;
     cout << "-----------------------------------Chip layer-by-layer Performance---------------------------------" << endl;
 
-    cout << "Energy Efficiency TOPS/W: " << numComputation / ((ReadDynamicEnergy + LeakageEnergy) * 1e12) << endl;
-    cout << "Throughput TOPS: " << numComputation / (ReadLatency) * 1e-12 << endl;
-    cout << "Throughput FPS: " << 1 / (ReadLatency) << endl;
+    cout << " ----------- Energy Efficiency TOPS/W: " << numComputation / ((ReadDynamicEnergy + LeakageEnergy) * 1e12) << endl;
+    cout << " ----------- Throughput TOPS: " << numComputation / (ReadLatency) * 1e-12 << endl;
+    cout << " ----------- Throughput FPS: " << 1 / (ReadLatency) << endl;
 
     cout << "-------------------------------------- Hardware Performance Done --------------------------------------" << endl;
     cout << endl;

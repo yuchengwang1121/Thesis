@@ -114,9 +114,9 @@ def main():
     for src in English_content[:9]:
         opt.text = src
         phrase = translate(opt, model, SRC, TRG)
-        print("After pre=>", phrase)
-        print("After Ans pre=>", ans)
-        if(phrase == ans):
+        print("After pre=>", phrase , " with size :", len(phrase))
+        print("After Ans pre=>", French_content[ans_pointer] , " with size :", len(French_content[ans_pointer]))
+        if(phrase == French_content[ans_pointer]):
             hit += 1
         ans_pointer += 1
 

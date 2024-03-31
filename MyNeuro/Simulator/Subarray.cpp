@@ -179,7 +179,6 @@ void SubArray::CalculateArea() {  //calculate layout area for total design
 		areaArray = heightArray * widthArray;
 		
 		if (conventionalSequential) {  
-			cout << "In con seq" << endl;
 			wlDecoder.CalculateArea(heightArray, NULL, NONE);
 			// if (cell.accessType == CMOS_access) {
 			wlNewDecoderDriver.CalculateArea(heightArray, NULL, NONE);

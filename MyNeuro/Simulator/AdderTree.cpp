@@ -13,7 +13,6 @@ AdderTree::AdderTree(const InputParameter& _inputParameter, const Technology& _t
 void AdderTree::Initialize(int _numSubcoreRow, int _numAdderBit, int _numAdderTree) {
 	if (initialized)
 		cout << "[AdderTree] Warning: Already initialized!" << endl;
-	cout << "numSubcoreRow , numStage, numAdderBit, numAdderTree" << numSubcoreRow << " "<< numStage<< " "<< numAdderBit<< " "<< numAdderTree<< endl;
 	numSubcoreRow = _numSubcoreRow;                  // # of row of subcore in the synaptic core
 	numStage = ceil(log2(numSubcoreRow));            // # of stage of the adder tree, used for CalculateLatency ...
 	numAdderBit = _numAdderBit;                      // # of input bits of the Adder
