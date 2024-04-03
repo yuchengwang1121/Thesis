@@ -1,1 +1,0 @@
-./Simulator/soft 0 ./Simulator/Network.csv 1 1 1 ./data/STAR_Soft/CAM_Weight.csv ./data/STAR_Soft/LUT_Weight_STAR.csv ./data/STAR_Soft/CAMInput_STAR.csv ./data/STAR_Soft/LUTInput_STAR.csv

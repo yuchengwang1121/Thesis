@@ -44,11 +44,12 @@ int main(int argc, char *argv[])
 
     vector<vector<double>> netStructure;
 	// cout << "get net "<<argv[2] << endl;
-    netStructure = getNetStructure(argv[2]);                                        // get file from trace.command.sh
+	int Segnum = atoi(argv[2]);
+    netStructure = getNetStructure(argv[3]);                                        // get file from trace.command.sh
 	// cout << "get bit "<<argv[3] << endl;
     // define weight/input/memory precision from wrapper
-    param->synapseBit = atoi(argv[3]);  // precision of synapse weight
-    param->numBitInput = atoi(argv[4]); // precision of input neural activation
+    param->synapseBit = atoi(argv[4]);  // precision of synapse weight
+    param->numBitInput = atoi(argv[5]); // precision of input neural activation
 
     if (param->cellBit > param->synapseBit)
     {
@@ -377,11 +378,11 @@ int main(int argc, char *argv[])
 	vector<vector<double>> weightMemory, transMemory, inputMemory;
 	vector<vector<double>> inputVector, softVector;
 	
-	weightMemory = LoadInWeightData(argv[5], 1, 1, param->maxConductance, param->minConductance);
-	transMemory = LoadInWeightData(argv[6], 1, 1, param->maxConductance, param->minConductance);
-	inputMemory = LoadInWeightData(argv[7], 1, 1, param->maxConductance, param->minConductance);
-	inputVector = LoadInInputData(argv[8]);
-	softVector = LoadInInputData(argv[9]);
+	weightMemory = LoadInWeightData(argv[6], 1, 1, param->maxConductance, param->minConductance);
+	transMemory = LoadInWeightData(argv[7], 1, 1, param->maxConductance, param->minConductance);
+	inputMemory = LoadInWeightData(argv[8], 1, 1, param->maxConductance, param->minConductance);
+	inputVector = LoadInInputData(argv[9]);
+	softVector = LoadInInputData(argv[10]);
 
     /*** assign weight and input to specific subArray ***/
     vector<vector<double>> subArrayWeight,subArrayTrans,subArrayIn;

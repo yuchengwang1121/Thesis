@@ -1,3 +1,7 @@
+CAM Area(m^2), ADC Area(m^2), Accumulation Area(m^2), Other Logic&Storage Area(m^2), CAM CIM (FW+AG) Area (m^2)
+6.11966e-09,0,1.14616e-09,1.34218e-10,4.83928e-09
+LUT Area(m^2), ADC Area(m^2), Accumulation Area(m^2), Other Logic&Storage Area(m^2), LUT CIM (FW+AG) Area (m^2)
+2.89892e-09,0,4.62501e-10,1.67772e-11,2.41964e-09
 Total Area(m^2), ADC Area(m^2), Accumulation Area(m^2), Other Logic&Storage Area(m^2), Total CIM (FW+AG) Area (m^2)
-9.0484e-07,3.80245e-05,1.72448e-05,4.39805e-06,7.92868e-05
+9.01858e-09,0,1.60866e-09,1.50995e-10,7.25892e-09
 

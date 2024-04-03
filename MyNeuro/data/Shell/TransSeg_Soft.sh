@@ -1,1 +1,0 @@
-./Simulator/soft 0 ./Simulator/Network.csv 1 1 2 ./data/TransSeg_Soft/CAM_Weight.csv ./data/TransSeg_Soft/LUT_Weight_TransSeg.csv ./data/TransSeg_Soft/CAMInput_TransSeg_2.csv ./data/TransSeg_Soft/LUTInput_TransSeg.csv

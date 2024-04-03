@@ -1,6 +1,6 @@
 .SECONDEXPANSION:
 
-mode = 1
+mode = 3
 
 ifeq ($(mode),1)
 	main=TransSeg

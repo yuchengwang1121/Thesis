@@ -30,13 +30,13 @@ int main(int argc, char *argv[])
 
     vector<vector<double>> netStructure;
 	// cout << "get net "<<argv[2] << endl;
-    netStructure = getNetStructure(argv[2]);                                        // get file from trace.command.sh
+	bool STAR = (atoi(argv[2]) == 1);;	// <=== Modify When Change Structure ===>
+    netStructure = getNetStructure(argv[3]);                                        // get file from trace.command.sh
 	// cout << "get bit "<<argv[3] << endl;
     // define weight/input/memory precision from wrapper
-    param->synapseBit = atoi(argv[3]);  // precision of synapse weight
-    param->numBitInput = atoi(argv[4]); // precision of input neural activation
+    param->synapseBit = atoi(argv[4]);  // precision of synapse weight
+    param->numBitInput = atoi(argv[5]); // precision of input neural activation
 
-	bool STAR = false;	// <=== Modify When Change Structure ===>
 	string softtype = STAR ? "STAR" : "TransSeg";
 	cout << "------------------------------ Softmax Type --------------------------------" << endl;
 	cout << "==> Type : "<< softtype << endl;
@@ -203,7 +203,7 @@ int main(int argc, char *argv[])
 	CAM->Initialize(CAMnumRow, CAMnumCol, param->unitLengthWireResistance);        // initialize CAM
 	LUT->Initialize(LUTnumRow, LUTnumCol, param->unitLengthWireResistance);        // initialize LUT
 
-	cout << "number of Segment is " << atoi(argv[5]) << " with Input size is " << 16/atoi(argv[5]) << endl;
+	cout << "number of Segment is " << atoi(argv[6]) << " with Input size is " << 16/atoi(argv[6]) << endl;
     cout << "number of CAM subarray's row is " << CAMnumSubArrayRow << " with number of subarray's col is " << CAMnumSubArrayCol << endl;
 	cout << "number of LUT subarray's row is " << LUTnumSubArrayRow << " with number of subarray's col is " << LUTnumSubArrayCol << endl;
     cout << endl;
@@ -342,16 +342,16 @@ int main(int argc, char *argv[])
 
     // weight matrix is further partitioned inside PE (among subArray) --> no duplicated
 	int numInVector, numSeg;
-	numSeg = atoi(argv[5]);
+	numSeg = atoi(argv[6]);
 	numInVector = 16/numSeg;
 
 	// load in whole file 
 	vector<vector<double>> CAMMemory,LUTMemory;
 	vector<vector<double>> CAMinputVector, LUTinputVector;
-	CAMMemory = LoadInWeightData(argv[6], 1, 1, param->maxConductance, param->minConductance);
-	LUTMemory = LoadInWeightData(argv[7], 1, 1, param->maxConductance, param->minConductance);
-	CAMinputVector = LoadInInputData(argv[8]);
-	LUTinputVector = LoadInInputData(argv[9]);
+	CAMMemory = LoadInWeightData(argv[7], 1, 1, param->maxConductance, param->minConductance);
+	LUTMemory = LoadInWeightData(argv[8], 1, 1, param->maxConductance, param->minConductance);
+	CAMinputVector = LoadInInputData(argv[9]);
+	LUTinputVector = LoadInInputData(argv[10]);
 
     /*** assign weight and input to specific subArray ***/
     vector<vector<double>> subCAMMemory, subLUTMemory;
@@ -491,7 +491,7 @@ int main(int argc, char *argv[])
     cout << "------------------------------ Summary --------------------------------" << endl;
     cout << endl;
 	cout << "---------- Area of CAM ----------" << endl;
-    cout << "Area : " << CAMArea * 1e12 << "um^2" << endl;
+    cout << " ===========>> Area : " << CAMArea * 1e12 << "um^2" << endl;
     cout << "Total CIM (Forward+Activation Gradient) array : " << CAMAreaArray * 1e12 << "um^2" << endl;
     cout << "Total ADC (or S/As and precharger for SRAM) Area on chip : " << CAMAreaADC * 1e12 << "um^2" << endl;
     cout << "Total Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) on chip : " << CAMAreaAccum * 1e12 << "um^2" << endl;
@@ -515,8 +515,8 @@ int main(int argc, char *argv[])
 
     cout << "readLatency  is: " << ReadLatency * 1e9 << "ns" << endl;
     cout << "readDynamicEnergy  is: " << ReadDynamicEnergy * 1e12 << "pJ" << endl;
-    cout << "leakage Energy (Leakage * ReadLatency) is: " << LeakageEnergy * 1e12 << "pJ" << endl;
-    cout << "leakage Power (Leakage) is: " << Leakage * 1e6 << "uW" << endl;
+    cout << " ===========>> leakage Energy (Leakage * ReadLatency) is: " << LeakageEnergy * 1e12 << "pJ" << endl;
+    cout << " ===========>> leakage Power (Leakage) is: " << Leakage * 1e6 << "uW" << endl;
     cout << endl;
     cout << "************************ Breakdown of Latency and Dynamic Energy *************************" << endl;
     cout << endl;
