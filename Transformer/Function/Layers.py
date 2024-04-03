@@ -13,14 +13,14 @@ class EncoderLayer(nn.Module):
         self.dropout_1 = nn.Dropout(dropout)
         self.dropout_2 = nn.Dropout(dropout)
         
-    def forward(self, x, mask, Writedata, Layer, Encoder, Segnum):
+    def forward(self, x, mask, Layer, Encoder, opt):
         i_filename = "./Input"
         x2 = self.norm_1(x)
-        if( Writedata):
+        if(opt.Writedata):
             print("Writing the Norm_in input in ", i_filename + str(Layer) + ".csv", " with size ", x2.size()[1], " * ", x2.size()[2])
-            np.savetxt(i_filename+ "/input_" + str(Layer) + ".csv" , x2.detach().numpy().reshape(x2.size()[1],x2.size()[2]) , delimiter=",",fmt='%10.5f')
+            np.savetxt(i_filename+ "/input_" + str(Layer) + ".csv" , x2.to(opt.device).detach().numpy().reshape(x2.size()[1],x2.size()[2]) , delimiter=",",fmt='%10.5f')
         # print("-------------------EncoderLayer %d-------------------" % Layer)
-        x = x + self.dropout_1(self.attn(x2,x2,x2,mask, Writedata, Layer, Encoder, Segnum))
+        x = x + self.dropout_1(self.attn(x2,x2,x2,mask, Layer, Encoder, opt))
         x2 = self.norm_2(x)
         x = x + self.dropout_2(self.ff(x2))
         return x
@@ -42,12 +42,12 @@ class DecoderLayer(nn.Module):
         self.attn_2 = MultiHeadAttention(heads, d_model, dropout=dropout)
         self.ff = FeedForward(d_model, dropout=dropout)
 
-    def forward(self, x, e_outputs, src_mask, trg_mask, Writedata, Encoder, Segnum):
+    def forward(self, x, e_outputs, src_mask, trg_mask, Encoder, opt):
+        # print("-------------------DecoderLayer-------------------")
         x2 = self.norm_1(x)
-        x = x + self.dropout_1(self.attn_1(x2, x2, x2, trg_mask, Writedata, None ,Encoder, Segnum))
+        x = x + self.dropout_1(self.attn_1(x2, x2, x2, trg_mask,  None ,Encoder, opt))
         x2 = self.norm_2(x)
-        x = x + self.dropout_2(self.attn_2(x2, e_outputs, e_outputs,
-        src_mask, Writedata, None ,Encoder, Segnum))
+        x = x + self.dropout_2(self.attn_2(x2, e_outputs, e_outputs, src_mask, None ,Encoder, opt))
         x2 = self.norm_3(x)
         x = x + self.dropout_3(self.ff(x2))
         return x

@@ -7,12 +7,17 @@ import torch.nn.functional as F
 from Function.Optim import CosineWithRestarts
 from Function.Batch import create_masks
 import dill as pickle
+import matplotlib.pyplot as plt
+
 
 def train_model(model, opt):
     
     print("training model...")
     model.train()
     start = time.time()
+    loss_list = []
+    epochs_to_store = []
+
     if opt.checkpoint > 0:
         cptime = time.time()
                  
@@ -34,10 +39,13 @@ def train_model(model, opt):
             src_mask, trg_mask = create_masks(src, trg_input, opt)
             src_mask.to(opt.device)
             trg_mask.to(opt.device)
-            preds = model(src, trg_input, src_mask, trg_mask)
+            preds = model(src, trg_input, src_mask, trg_mask, True, None)
             ys = trg[:, 1:].contiguous().view(-1)
+            preds = preds.view(-1, preds.size(-1))
+            # print("The pre shape is ", preds.shape, "with value ", preds)
+            # print("The ys shape is ", ys.shape, "with value ", ys)
             opt.optimizer.zero_grad()
-            loss = F.cross_entropy(preds.view(-1, preds.size(-1)), ys, ignore_index=opt.trg_pad)
+            loss = F.cross_entropy(preds, ys, ignore_index=opt.trg_pad)
             loss.backward()
             opt.optimizer.step()
             if opt.SGDR == True: 
@@ -59,10 +67,18 @@ def train_model(model, opt):
             if opt.checkpoint > 0 and ((time.time()-cptime)//60) // opt.checkpoint >= 1:
                 torch.save(model.state_dict(), 'weights/model_weights')
                 cptime = time.time()
-   
-   
+
+        loss_list.append(avg_loss)
+        epochs_to_store.append(epoch + 1)
         print("%dm: epoch %d [%s%s]  %d%%  loss = %.3f\nepoch %d complete, loss = %.03f" %\
         ((time.time() - start)//60, epoch + 1, "".join('#'*(100//5)), "".join(' '*(20-(100//5))), 100, avg_loss, epoch + 1, avg_loss))
+
+    plt.plot(epochs_to_store, loss_list, label='Training Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Training Loss over Epochs')
+    plt.legend()
+    plt.savefig('training_loss_plot.png')
 
 def main():
 
@@ -71,11 +87,11 @@ def main():
     parser.add_argument('-trg_data', required=True)
     parser.add_argument('-src_lang', required=True)
     parser.add_argument('-trg_lang', required=True)
-    parser.add_argument('-no_cuda', action='store_false')
+    parser.add_argument('-no_cuda', action='store_true')
     parser.add_argument('-SGDR', action='store_true')
-    parser.add_argument('-epochs', type=int, default=30)
+    parser.add_argument('-epochs', type=int, default=60)
     parser.add_argument('-d_model', type=int, default=128)
-    parser.add_argument('-n_layers', type=int, default=3)
+    parser.add_argument('-n_layers', type=int, default=5)
     parser.add_argument('-heads', type=int, default=1)
     parser.add_argument('-dropout', type=int, default=0.1)
     parser.add_argument('-batchsize', type=int, default=1500)
@@ -86,13 +102,15 @@ def main():
     parser.add_argument('-max_strlen', type=int, default=80)
     parser.add_argument('-floyd', action='store_true')
     parser.add_argument('-checkpoint', type=int, default=0)
+    parser.add_argument('-Writedata', action='store', default=False)
 
     opt = parser.parse_args()
-    opt.device = 'cpu'
+    # opt.device = 'cpu'
 
-    # opt.device = 'cuda' if opt.no_cuda is False else 'cpu'
-    # if opt.device == 'cuda':
-    #     assert torch.cuda.is_available()
+    opt.device = 'cuda' if opt.no_cuda is False else 'cpu'
+    if opt.device == 'cuda':
+        assert torch.cuda.is_available()
+    print("The device is : ", opt.device)
 
     read_data(opt)
     SRC, TRG = create_fields(opt)
@@ -106,7 +124,7 @@ def main():
     if opt.checkpoint > 0:
         print("model weights will be saved every %d minutes and at end of epoch to directory weights/"%(opt.checkpoint))
     
-    if opt.load_weights is not None and opt.floyd is not None:
+    if opt.load_weights is not None and opt.floyd is not None and not os.path.exists('weights'):
         os.mkdir('weights')
         pickle.dump(SRC, open('weights/SRC.pkl', 'wb'))
         pickle.dump(TRG, open('weights/TRG.pkl', 'wb'))

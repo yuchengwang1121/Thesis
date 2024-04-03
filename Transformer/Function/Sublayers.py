@@ -22,36 +22,44 @@ class Norm(nn.Module):
         / (x.std(dim=-1, keepdim=True) + self.eps) + self.bias
         return norm
 
-def attention(q, k, v, d_k, mask=None, dropout=None,Layer=None,  Encoder=None, Segnum=0):
+def attention(q, k, v, d_k, mask=None, dropout=None,Layer=None,  Encoder=None, opt=None):
     scores = torch.matmul(q, k.transpose(-2, -1)) /  math.sqrt(d_k)
-
     if mask is not None:
         mask = mask.unsqueeze(1)
         scores = scores.masked_fill(mask == 0, -1e9)
-    if(Encoder and Segnum!=0):
-        segment = scores.squeeze().detach().numpy()
-        seg_size = int(segment.shape[0]/Segnum)
+    
+    if(Encoder and opt.Segnum!=0):
+        segment = scores.cpu().squeeze().detach().numpy()
+        padded_size = ((segment.shape[0] + 15) // 16) * 16
+        padded_scores = np.zeros((padded_size,padded_size))
+        padded_scores[:segment.shape[0], :segment.shape[1]] = segment
+        seg_size = int(padded_scores.shape[0]/opt.Segnum)
 
         merge_S= []
-        SegSoft = np.empty((Segnum, Segnum, seg_size, seg_size))
-        segment_R = np.split(segment, Segnum, axis=0)
+        SegSoft = np.zeros((opt.Segnum, opt.Segnum, seg_size, seg_size))
+        segment_R = np.split(padded_scores, opt.Segnum, axis=0)
 
         for i in range(len(segment_R)):
             for j in range(len(segment_R)):
-                SegSoft[i][j] = F.softmax(torch.tensor(np.split(segment_R[i], Segnum, axis=1)[j]),dim=-1)
+                SegSoft[i][j] = F.softmax(torch.tensor(np.split(segment_R[i], opt.Segnum, axis=1)[j]),dim=-1)
             merge_S.append(np.concatenate(SegSoft[i], axis=1))
         Res = np.concatenate(merge_S, axis=0)
         # np.savetxt('./data/Soft/soft_L'+str(Layer)+ '_'+str(Segnum) + '.csv', Res , delimiter=",",fmt='%10.5f')
-        scores = torch.tensor(Res).to(v.dtype)
+        
+        scores = torch.tensor(Res).to(v.dtype).to(opt.device)
+        res = scores[:segment.shape[0], :segment.shape[1]]
+        # print("The size of Res is", res.shape , " with ", v.shape)
+        if dropout is not None:
+            res = dropout(res)
+        output = torch.matmul(res, v)
     else:
-        scores = F.softmax(scores, dim=-1)
+        scores = F.softmax(scores, dim=-1).to(opt.device)
+        if dropout is not None:
+            scores = dropout(scores)
+        output = torch.matmul(scores, v)
         # if(Encoder):
             # np.savetxt('./data/Soft/soft_L'+str(Layer)+ '_'+str(Segnum) + '.csv', scores.squeeze().detach().numpy() , delimiter=",",fmt='%10.5f')
-        
     
-    if dropout is not None:
-        scores = dropout(scores)
-    output = torch.matmul(scores, v)
     return output
 
 class MultiHeadAttention(nn.Module):
@@ -69,14 +77,14 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.out = nn.Linear(d_model, d_model)
     
-    def forward(self, q, k, v, mask=None, Writedata=None, Layer=0, Encoder=None, Segnum=0):
+    def forward(self, q, k, v, mask=None, Layer=0, Encoder=None, opt=None):
         w_filename = "./Weight/weight" + str(Layer)
         bs = q.size(0)
         # perform linear operation and split into N heads
         k = self.k_linear(k).view(bs, -1, self.h, self.d_k)
         q = self.q_linear(q).view(bs, -1, self.h, self.d_k)
         v = self.v_linear(v).view(bs, -1, self.h, self.d_k)
-        if(Writedata):
+        if(opt.Writedata):
             print("===> Writing the weight Q,K,V in ", w_filename)
             np.savetxt(w_filename + "_Q.csv", self.q_linear.weight.detach().numpy() , delimiter=",",fmt='%10.5f')
             np.savetxt(w_filename + "_K.csv", self.k_linear.weight.detach().numpy() , delimiter=",",fmt='%10.5f')
@@ -88,7 +96,7 @@ class MultiHeadAttention(nn.Module):
         # print("===> The q.transpose is ", q.size())
 
         # calculate attention using function we will define next
-        scores = attention(q, k, v, self.d_k, mask, self.dropout, Layer=Layer ,Encoder=Encoder, Segnum=Segnum)
+        scores = attention(q, k, v, self.d_k, mask, self.dropout, Layer=Layer ,Encoder=Encoder, opt=opt)
         # concatenate heads and put through final linear layer
         concat = scores.transpose(1,2).contiguous()\
         .view(bs, -1, self.d_model)

@@ -46,7 +46,7 @@ parser.add_argument('--Bin_Pre',  type=int,  default=32,
                         help='The Precise to store LUT into binary form')
 # Generate Input data for NeuroSim
 parser.add_argument('--TransSeg_Arch', action='store', default=False,
-                        help='Calculate MSE between different number of segment')
+                        help='Generate Input data for NeuroSim')
 
 args = parser.parse_args()
 print("====> The parser are setting as below\n")
@@ -144,9 +144,15 @@ elif (args.TransSeg):
     for i in range(args.Seg): 
         TI[i] = np.array([Seg_array[i].transpose()])
 
-    for i in range(args.Seg):
-        for j in range(args.Seg):
+    for i in range(args.Seg):                           ### Futurework
+        for j in range(args.Seg):                       ### Compute only the diagonal matrix operations, swapping pairs 1<->2 and 3<->4
+            # if(i<args.Seg/2 and j<args.Seg/2):
             result = F.softmax(tr.tensor(np.matmul(QK_seg[i],TI[j])), dim=-1)
+            # elif(i>=args.Seg/2 and j>=args.Seg/2):
+                # result = F.softmax(tr.tensor(np.matmul(QK_seg[i],TI[j])), dim=-1)
+            # else:
+                # result = tr.tensor(np.zeros((Seg_size,Seg_size)))
+
             S[j] = np.around(result.numpy(), decimals=5)
         
         merge_S.append(np.concatenate(S, axis=1))

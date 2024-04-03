@@ -7,14 +7,14 @@ import math
 def init_vars(src, model, SRC, TRG, opt):
     init_tok = TRG.vocab.stoi['<sos>']
     src_mask = (src != SRC.vocab.stoi['<pad>']).unsqueeze(-2)
-    e_output = model.encoder(src, src_mask, opt.Segnum)
+    e_output = model.encoder(src, src_mask, opt)
     
-    outputs = torch.LongTensor([[init_tok]], device=opt.device)
+    outputs = torch.LongTensor([[init_tok]]).to(opt.device)
 
     trg_mask = nopeak_mask(1, opt)
     
     out = model.out(model.decoder(outputs,
-    e_output, src_mask, trg_mask, opt.Segnum))
+    e_output, src_mask, trg_mask, opt))
     out = F.softmax(out, dim=-1)
     
     probs, ix = out[:, -1].data.topk(opt.k)
@@ -56,7 +56,7 @@ def beam_search(src, model, SRC, TRG, opt):
         trg_mask = nopeak_mask(i, opt)
 
         out = model.out(model.decoder(outputs[:,:i],
-        e_outputs, src_mask, trg_mask, opt.Segnum))
+        e_outputs, src_mask, trg_mask, opt))
 
         out = F.softmax(out, dim=-1)
     
@@ -69,6 +69,7 @@ def beam_search(src, model, SRC, TRG, opt):
                 sentence_lengths[i] = vec[1] # Position of first end symbol
         
         num_finished_sentences = len([s for s in sentence_lengths if s > 0])    # 3, 0
+        
         if num_finished_sentences == opt.k:
             alpha = 0.7
             div = 1/(sentence_lengths.type_as(log_scores)**alpha)
@@ -77,9 +78,11 @@ def beam_search(src, model, SRC, TRG, opt):
             break
     
     if ind is None:
-        length = (outputs[0]==eos_tok).nonzero()[0]
+        if((outputs[0]==eos_tok).nonzero().numel() == 0):
+            length = opt.max_len
+        else:
+            length = (outputs[0]==eos_tok).nonzero()[0]
         return ' '.join([TRG.vocab.itos[tok] for tok in outputs[0][1:length]])
-    
     else:
         length = (outputs[ind]==eos_tok).nonzero()[0]
         return ' '.join([TRG.vocab.itos[tok] for tok in outputs[ind][1:length]])
