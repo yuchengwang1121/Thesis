@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
     /*** CAM's property ***/
 	int CAMnumRow = 64;		//each vector has 64 bit
 	int CAMnumCol = 64;		//hit vector from -20 ~ 43
-	int CAMclk    = (STAR)? 20e9 : 15e9;
+	int CAMclk    = (STAR)? 12e9 : 11e9;
 
 	CAM->conventionalParallel = param->conventionalParallel;                  
 	CAM->conventionalSequential = param->conventionalSequential;   
@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
 	/*** LUT's property ***/
 	int LUTnumRow = (STAR)? 64 : 16;		//from -15 ~ 0
 	int LUTnumCol = 32;		//use 32bit ti reprecent precision 8 LUT
-	int LUTclk    = (STAR)? 20e9 : 15e9;
+	int LUTclk    = (STAR)? 12e9 : 11e9;
 
 	LUT->conventionalParallel = param->conventionalParallel;                  
 	LUT->conventionalSequential = param->conventionalSequential;   
@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
     LUT->maxNumWritePulse = MAX(cell.maxNumLevelLTP, cell.maxNumLevelLTD);
 
 	/*** User defined num of elements ***/
-	int CAMnumSubArrayRow = 2;		// The number of subarray's row
+	int CAMnumSubArrayRow = 2;		// The number of subarray's row(one for CAMSUB and one for SUBresult)
 	int CAMnumSubArrayCol = 1; 	// The number of subarray's col
 	int LUTnumSubArrayRow = 2;		// The number of subarray's row
 	int LUTnumSubArrayCol = 1; 	// The number of subarray's col
@@ -204,8 +204,10 @@ int main(int argc, char *argv[])
 	LUT->Initialize(LUTnumRow, LUTnumCol, param->unitLengthWireResistance);        // initialize LUT
 
 	cout << "number of Segment is " << atoi(argv[6]) << " with Input size is " << 16/atoi(argv[6]) << endl;
-    cout << "number of CAM subarray's row is " << CAMnumSubArrayRow << " with number of subarray's col is " << CAMnumSubArrayCol << endl;
-	cout << "number of LUT subarray's row is " << LUTnumSubArrayRow << " with number of subarray's col is " << LUTnumSubArrayCol << endl;
+	cout << "number of CAM in row is " << CAMnumSubArrayRow << " with number of in col is " << CAMnumSubArrayCol << endl;
+    cout << "number of CAM subarray's row is " << CAMnumRow << " with number of subarray's col is " << CAMnumCol << endl;
+	cout << "number of LUT in row is " << LUTnumSubArrayRow << " with number of in col is " << LUTnumSubArrayCol << endl;
+	cout << "number of LUT subarray's row is " << LUTnumRow << " with number of subarray's col is " << LUTnumCol << endl;
     cout << endl;
     cout << "---------------------------- FloorPlan Done ------------------------------" << endl;
     cout << endl;
@@ -227,6 +229,9 @@ int main(int argc, char *argv[])
     LUT->CalculateArea();
     TotalareaCAM = CAM->usedArea * (CAMnumSubArrayRow*CAMnumSubArrayCol);
 	TotalareaLUT = LUT->usedArea * (LUTnumSubArrayRow*LUTnumSubArrayCol);
+
+	// cout << " ----------- The CAM->usedArea is : " << CAM->usedArea  * 1e12 << endl;
+	// cout << " ----------- The LUT->usedArea is : " << LUT->usedArea  * 1e12 << endl;
 
     
     heightCAM = sqrt(TotalareaCAM);
@@ -491,7 +496,7 @@ int main(int argc, char *argv[])
     cout << "------------------------------ Summary --------------------------------" << endl;
     cout << endl;
 	cout << "---------- Area of CAM ----------" << endl;
-    cout << " ===========>> Area : " << CAMArea * 1e12 << "um^2" << endl;
+    cout << "Area : " << CAMArea * 1e12 << "um^2" << endl;
     cout << "Total CIM (Forward+Activation Gradient) array : " << CAMAreaArray * 1e12 << "um^2" << endl;
     cout << "Total ADC (or S/As and precharger for SRAM) Area on chip : " << CAMAreaADC * 1e12 << "um^2" << endl;
     cout << "Total Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) on chip : " << CAMAreaAccum * 1e12 << "um^2" << endl;
@@ -505,7 +510,7 @@ int main(int argc, char *argv[])
     cout << "Other Peripheries (e.g. decoders, mux, switchmatrix, buffers, pooling and activation units) : " << LUTAreaOther * 1e12 << "um^2" << endl;
     cout << endl;
 	cout << "---------- Area Summary ----------" << endl;
-    cout << "Area : " << (CAMArea + LUTArea) * 1e12 << "um^2" << endl;
+    cout << " ===========>> Area : " << (CAMArea + LUTArea) * 1e12 << "um^2" << endl;
     cout << "Total CIM (Forward+Activation Gradient) array : " << (CAMAreaArray + LUTAreaArray) * 1e12 << "um^2" << endl;
     cout << "Total ADC (or S/As and precharger for SRAM) Area on chip : " << (CAMAreaADC + LUTAreaADC) * 1e12 << "um^2" << endl;
     cout << "Total Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) on chip : " << (CAMAreaAccum + LUTAreaAccum) * 1e12 << "um^2" << endl;
@@ -513,9 +518,9 @@ int main(int argc, char *argv[])
     cout << endl;
     cout << "-----------------------------------Chip layer-by-layer Estimation---------------------------------" << endl;
 
-    cout << "readLatency  is: " << ReadLatency * 1e9 << "ns" << endl;
-    cout << "readDynamicEnergy  is: " << ReadDynamicEnergy * 1e12 << "pJ" << endl;
-    cout << " ===========>> leakage Energy (Leakage * ReadLatency) is: " << LeakageEnergy * 1e12 << "pJ" << endl;
+    cout << " ===========>> readLatency  is: " << ReadLatency * 1e9 << "ns" << endl;
+    cout << " ----------- readDynamicEnergy  is: " << ReadDynamicEnergy * 1e12 << "pJ" << endl;
+    cout << " ----------- leakage Energy (Leakage * ReadLatency) is: " << LeakageEnergy * 1e12 << "pJ" << endl;
     cout << " ===========>> leakage Power (Leakage) is: " << Leakage * 1e6 << "uW" << endl;
     cout << endl;
     cout << "************************ Breakdown of Latency and Dynamic Energy *************************" << endl;

@@ -1,7 +1,0 @@
-A good lawyer would leave no stone unturned in his efforts to defend his client.
-
-Un bon avocat remuerait ciel et terre pour défendre son client.
-
-
-After translate : Cela doit être la salle de ville.
-After Answer : Ça doit être la mairie.

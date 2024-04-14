@@ -39,7 +39,7 @@ def train_model(model, opt):
             src_mask, trg_mask = create_masks(src, trg_input, opt)
             src_mask.to(opt.device)
             trg_mask.to(opt.device)
-            preds = model(src, trg_input, src_mask, trg_mask, True, None)
+            preds = model(src, trg_input, src_mask, trg_mask, opt)
             ys = trg[:, 1:].contiguous().view(-1)
             preds = preds.view(-1, preds.size(-1))
             # print("The pre shape is ", preds.shape, "with value ", preds)
@@ -76,9 +76,9 @@ def train_model(model, opt):
     plt.plot(epochs_to_store, loss_list, label='Training Loss')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
-    plt.title('Training Loss over Epochs')
+    plt.title('Training Loss with head_' + str(opt.heads) + ' & layers_' + str(opt.n_layers))
     plt.legend()
-    plt.savefig('training_loss_plot.png')
+    plt.savefig('./Pic/training_loss_plot_h'+ str(opt.heads) + 'l_' + str(opt.n_layers) + '.png')
 
 def main():
 
@@ -89,10 +89,10 @@ def main():
     parser.add_argument('-trg_lang', required=True)
     parser.add_argument('-no_cuda', action='store_true')
     parser.add_argument('-SGDR', action='store_true')
-    parser.add_argument('-epochs', type=int, default=60)
+    parser.add_argument('-epochs', type=int, default=100)
     parser.add_argument('-d_model', type=int, default=128)
     parser.add_argument('-n_layers', type=int, default=5)
-    parser.add_argument('-heads', type=int, default=1)
+    parser.add_argument('-heads', type=int, default=2)
     parser.add_argument('-dropout', type=int, default=0.1)
     parser.add_argument('-batchsize', type=int, default=1500)
     parser.add_argument('-printevery', type=int, default=100)
@@ -103,6 +103,7 @@ def main():
     parser.add_argument('-floyd', action='store_true')
     parser.add_argument('-checkpoint', type=int, default=0)
     parser.add_argument('-Writedata', action='store', default=False)
+    parser.add_argument('-Segnum', type=int, default=0)
 
     opt = parser.parse_args()
     # opt.device = 'cpu'

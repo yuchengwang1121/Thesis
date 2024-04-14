@@ -46,6 +46,7 @@ int main(int argc, char *argv[])
     vector<vector<double>> netStructure;
 	// cout << "get net "<<argv[2] << endl;
 	int Segnum = atoi(argv[2]);
+	double clk = 11e9;
     netStructure = getNetStructure(argv[3]);                                        // get file from trace.command.sh
 	// cout << "get bit "<<argv[3] << endl;
     // define weight/input/memory precision from wrapper
@@ -153,7 +154,7 @@ int main(int argc, char *argv[])
 	subArray->levelOutputBP = param->levelOutputAG;
 	subArray->numColMuxed = param->numColMuxed;               // How many columns share 1 read circuit (for neuro mode with analog RRAM) or 1 S/A (for memory mode or neuro mode with digital RRAM)
 	subArray->numRowMuxedBP = param->numRowMuxedAG;
-    subArray->clkFreq = 15e9;                       // Clock frequency
+    subArray->clkFreq = clk;                       // Clock frequency
 	subArray->relaxArrayCellHeight = param->relaxArrayCellHeight;
 	subArray->relaxArrayCellWidth = param->relaxArrayCellWidth;
 	subArray->numReadPulse = param->numBitInput;
@@ -196,14 +197,14 @@ int main(int argc, char *argv[])
 	}
 	
 	// For Buffer
-	bufferInputCM->Initialize(param->numBitInput*numRow, 15e9);
-	bufferReg1->Initialize(param->numBitInput*numRow, 15e9);
-	bufferReg2->Initialize(param->numBitInput*numRow/Segnum, 15e9);
-	bufferSoft->Initialize(param->numBitInput*numRow, 15e9);
+	bufferInputCM->Initialize(param->numBitInput*numRow, clk);
+	bufferReg1->Initialize(param->numBitInput*numRow, clk);
+	bufferReg2->Initialize(param->numBitInput*numRow/Segnum, clk);
+	bufferSoft->Initialize(param->numBitInput*numRow, clk);
 	if (param->parallelRead) {
-		bufferOutputCM->Initialize((numCol/param->numColMuxed)*(log2((double)param->levelOutput)+param->numBitInput+param->numColPerSynapse+adderTreeCM->numStage), 15e9);
+		bufferOutputCM->Initialize((numCol/param->numColMuxed)*(log2((double)param->levelOutput)+param->numBitInput+param->numColPerSynapse+adderTreeCM->numStage), clk);
 	} else {
-		bufferOutputCM->Initialize((numCol/param->numColMuxed)*((log2((double)numRow)+param->cellBit-1)+param->numBitInput+param->numColPerSynapse+adderTreeCM->numStage), 15e9);
+		bufferOutputCM->Initialize((numCol/param->numColMuxed)*((log2((double)numRow)+param->cellBit-1)+param->numBitInput+param->numColPerSynapse+adderTreeCM->numStage), clk);
 	}
 	
 	// For Bus
@@ -617,9 +618,13 @@ int main(int argc, char *argv[])
 	cout << endl;
     cout << "-----------------------------------Chip layer-by-layer Estimation---------------------------------" << endl;
 
-    cout << " ----------- readLatency  is: " << ReadLatency * 1e9 << "ns" << endl;
+    cout << " ===========>> readLatency  is: " << ReadLatency * 1e9 << "ns" << endl;
+	cout << " IWReadLatency is: " << IWReadLatency * 1e9 << "ns" << endl;
+	cout << " STReadLatency is: " << STReadLatency * 1e9 << "ns" << endl;
+	cout << " SSReadLatency is: " << SSReadLatency * 1e9 << "ns" << endl;
+	cout << " BufferLatency is: " << BufferLatency * 1e9 << "ns" << endl;
     cout << " ----------- readDynamicEnergy  is: " << ReadDynamicEnergy * 1e12 << "pJ" << endl;
-    cout << " ===========>> leakage Energy (Leakage * ReadLatency) is: " << LeakageEnergy * 1e12 << "pJ" << endl;
+    cout << " ----------- leakage Energy (Leakage * ReadLatency) is: " << LeakageEnergy * 1e12 << "pJ" << endl;
     cout << " ===========>> leakage Power (Leakage) is: " << Leakage * 1e6 << "uW" << endl;
     cout << endl;
     cout << "************************ Breakdown of Latency and Dynamic Energy *************************" << endl;
